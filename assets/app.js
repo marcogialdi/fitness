@@ -82,6 +82,7 @@ async function series(cfg){
   return { labels: a.map(x => label(x.k, state.gran)), vals: a.map(x => +x.v.toFixed(2)), tr: trend(a.map(x => x.v)).map(x => +x.toFixed(2)) };
 }
 async function render(o){
+  if (o.cfg.type === "scatter") { o.s = await pairs(o.cfg); o.chart = drawScatter(o.canvas, o.cfg, o.s, o.chart); return; }
   const s = o.s = await series(o.cfg), st = Math.max(0, s.vals.length - WIN[state.gran]);
   o.chart = draw(o.canvas, o.cfg, s.labels.slice(st), s.vals.slice(st), s.tr.slice(st), o.chart);
 }
@@ -106,11 +107,15 @@ function openModal(o){
     addEventListener("keydown", e => { if (!M.classList.contains("open")) return; if (e.key === "Escape") M.classList.remove("open"); if (e.key === "ArrowLeft") move(1); if (e.key === "ArrowRight") move(-1); });
   }
   mo = o; off = 0;
-  M.querySelector("h3").textContent = o.cfg.title + " · " + GR.find(g => g[0] === state.gran)[1];
-  M.classList.add("open"); mdraw();
+  const sc = o.cfg.type === "scatter";
+  M.querySelector("h3").textContent = o.cfg.title + (sc ? "" : " · " + GR.find(g => g[0] === state.gran)[1]);
+  M.querySelectorAll("#prev,#next,#range").forEach(e => e.style.display = sc ? "none" : "");
+  M.classList.add("open");
+  if (sc) mchart = drawScatter(M.querySelector("canvas"), o.cfg, o.s, mchart); else mdraw();
 }
 const move = d => { off += d * Math.ceil(WIN[state.gran] / 2); mdraw(); };
 function mdraw(){
+  if (mo.cfg.type === "scatter") return;
   const s = mo.s, W = WIN[state.gran], n = s.vals.length;
   off = Math.max(0, Math.min(off, Math.max(0, n - W)));
   const end = n - off, st = Math.max(0, end - W);
@@ -120,17 +125,78 @@ function mdraw(){
   M.querySelector("#next").disabled = off === 0;
 }
 
-/* ---------- KPI e badge ---------- */
+/* ---------- KPI: ultimo valore + variazione, medie 7 gg, KPI calcolati ---------- */
+const iso = o => new Date(Date.now() - o * 864e5).toISOString().slice(0, 10);
+const inW = (r, a, b = 0) => r.filter(x => x.d > iso(a) && x.d <= iso(b)); // giorni (b, a] fa
+const V = r => r.map(x => x.v), avg = a => a.length ? sum(a) / a.length : NaN;
+const sd = a => { const m = avg(a); return Math.sqrt(avg(a.map(x => (x - m) ** 2))); };
+const last = r => r[r.length - 1]?.v, T = C.TARGET || {};
+const mac = (s, k) => ({ n: [s, "kcal"], f: D => 100 * avg(V(inW(D[s], 7))) * k / avg(V(inW(D.kcal, 7))) });
+const CALC = {
+  mg:   { n: ["muscolo", "grasso", "peso"], f: D => last(D.muscolo) / (last(D.peso) * last(D.grasso) / 100) },
+  ffmi: { n: ["lbm"], f: D => last(D.lbm) / T.altezza_m ** 2 + 6.1 * (1.8 - T.altezza_m) },
+  protkg: { n: ["proteine", "peso"], f: D => avg(V(inW(D.proteine, 7))) / last(D.peso) },
+  aderenza: { n: ["kcal"], f: D => { const a = V(inW(D.kcal, 30)); return a.length ? 100 * a.filter(x => Math.abs(x / T.kcal - 1) <= .1).length / a.length : NaN; } },
+  tdee: { n: ["kcal", "peso"], f: D => avg(V(inW(D.kcal, 28))) - (avg(V(inW(D.peso, 7))) - avg(V(inW(D.peso, 35, 28)))) * 7700 / 28 },
+  macroP: mac("proteine", 4), macroC: mac("carbo", 4), macroF: mac("grassi_g", 9),
+  sess:    { n: ["sessioni"], f: D => sum(V(inW(D.sessioni, 28))) / 4 },
+  volsett: { n: ["volume"], f: D => sum(V(inW(D.volume, 28))) / 4 },
+  giorni:  { n: ["volume"], f: D => { const l = D.volume.at(-1); return l ? Math.floor((Date.now() - Date.parse(l.d)) / 864e5) : NaN; } },
+  streak:  { n: ["sessioni"], f: D => {
+    const w = new Map(); D.sessioni.forEach(r => { const k = key(r.d, "week"); w.set(k, (w.get(k) || 0) + r.v); });
+    const t = new Date(key(iso(0), "week") + "T00:00:00Z"), ok = () => (w.get(t.toISOString().slice(0, 10)) || 0) >= T.sessioni;
+    let n = ok() ? 1 : 0; for (;;) { t.setUTCDate(t.getUTCDate() - 7); if (ok()) n++; else break; } return n; } },
+  dens: { n: ["volume", "durata"], f: D => sum(V(inW(D.volume, 28))) / sum(V(inW(D.durata, 28))) },
+  acwr: { n: ["volume"], f: D => sum(V(inW(D.volume, 7))) / (sum(V(inW(D.volume, 28))) / 4) },
+  debito: { n: ["ore_sonno"], f: D => { const a = V(inW(D.ore_sonno, 7)); return T.sonno_h * a.length - sum(a); } },
+  regol: { n: ["addorm"], f: D => sd(V(inW(D.addorm, 14))) },
+  hrvb:  { n: ["hrv"], f: D => 100 * (avg(V(inW(D.hrv, 7))) / avg(V(inW(D.hrv, 60))) - 1) }
+};
+// KPI: {title, source, kind:'last'|'avg7'}  oppure  {title, calc:'nome'}
 async function addKpis(host, list){
   for (const k of list) {
     const el = $(`<div class="card kpi"><small>${k.title}</small><div class="v" style="color:${k.color}">…</div><div class="d"></div></div>`);
     host.append(el);
-    load(k.source).then(rows => {
-      const l = rows[rows.length - 1];
-      el.querySelector(".v").textContent = l ? `${l.v.toFixed(k.dec ?? 1)} ${k.unit || ""}`.trim() : "n/d";
-      el.querySelector(".d").textContent = l ? l.d : "";
-    }).catch(() => { el.querySelector(".v").textContent = "errore"; });
+    (async () => {
+      let v, sub = "", dl = null, dd = 30;
+      if (k.calc) { const c = CALC[k.calc], D = {}; (await Promise.all(c.n.map(load))).forEach((r, i) => D[c.n[i]] = r); v = c.f(D); sub = k.note || ""; }
+      else {
+        const r = await load(k.source);
+        if (k.kind === "avg7") { v = avg(V(inW(r, 7))); dl = v - avg(V(inW(r, 14, 7))); dd = 7; sub = "media 7 gg"; }
+        else { v = last(r); sub = r.at(-1)?.d || ""; dl = avg(V(inW(r, 30))) - avg(V(inW(r, 60, 30))); }
+      }
+      const dec = k.dec ?? 1;
+      el.querySelector(".v").textContent = isFinite(v) ? `${v.toFixed(dec)} ${k.unit || ""}`.trim() : "n/d";
+      el.querySelector(".d").textContent = sub + (dl != null && isFinite(dl) ? ` · ${dl >= 0 ? "▲" : "▼"} ${Math.abs(dl).toFixed(dec)} vs ${dd} gg prec.` : "");
+    })().catch(() => { el.querySelector(".v").textContent = "errore"; });
   }
+}
+/* ---------- template dispersione (correlazioni) ---------- */
+// {type:'scatter', x:'sorgente', y:'sorgente', lag:giorni (x precede y), dy:true (y = variazione vs periodo prec.), gran:'day'|'week'}
+async function pairs(c){
+  const g = c.gran || "day", sh = (k, n) => new Date(Date.parse(k) - n * 864e5).toISOString().slice(0, 10);
+  const X = new Map(aggregate(await load(c.x), g, c.xagg || "avg").map(a => [a.k, a.v]));
+  let Y = aggregate(await load(c.y), g, c.yagg || "avg");
+  if (c.dy) Y = Y.slice(1).map((a, i) => ({ k: a.k, v: a.v - Y[i].v }));
+  const pts = []; for (const y of Y) { const x = X.get(c.lag ? sh(y.k, c.lag) : y.k); if (x != null) pts.push({ x: +x.toFixed(2), y: +y.v.toFixed(2), l: y.k }); }
+  let r = NaN, line = [];
+  if (pts.length > 2) {
+    const mx = avg(pts.map(p => p.x)), my = avg(pts.map(p => p.y)); let sxy = 0, sxx = 0, syy = 0;
+    pts.forEach(p => { sxy += (p.x - mx) * (p.y - my); sxx += (p.x - mx) ** 2; syy += (p.y - my) ** 2; });
+    const b = sxy / sxx, xs = pts.map(p => p.x), lo = Math.min(...xs), hi = Math.max(...xs);
+    r = sxy / Math.sqrt(sxx * syy); line = [{ x: lo, y: my + b * (lo - mx) }, { x: hi, y: my + b * (hi - mx) }];
+  }
+  return { pts, line, r };
+}
+function drawScatter(cv, c, s, old){
+  old && old.destroy();
+  const mut = "#94a3b8", ax = t => ({ title: { display: !!t, text: t, color: mut }, ticks: { color: mut }, grid: { color: "#334155" } });
+  return new Chart(cv, { type: "scatter", data: { datasets: [
+    { label: `${c.label || "Dati"} (n=${s.pts.length})`, data: s.pts, backgroundColor: c.color + "cc", pointRadius: 4 },
+    { type: "line", label: `Trend (r = ${isNaN(s.r) ? "n/d" : s.r.toFixed(2)})`, data: s.line, borderColor: "#fff", borderDash: [6, 5], borderWidth: 2, pointRadius: 0 }] },
+    options: { responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: { legend: { labels: { color: mut } }, tooltip: { callbacks: { label: i => `${i.raw.l || ""} (${i.raw.x}, ${i.raw.y})` } } },
+      scales: { x: ax(c.xl), y: ax(c.yl) } } });
 }
 async function addChips(host){
   host.append($(`<span>📌 <b>Ultimo aggiornamento DB:</b></span>`));

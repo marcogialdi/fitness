@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="assets/style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="assets/config.js"></script><script src="assets/app.js"></script></head>
+<body><script>
+Page.init({
+  title:'Wellness', sub:'Sonno e recupero (RingConn).',
+  kpis:[
+    {title:'Sleep score',source:'sonno',dec:0,color:'#ec4899'},
+    {title:'Ore di sonno',source:'ore_sonno',unit:'h',color:'#38bdf8'},
+    {title:'HRV',source:'hrv',unit:'ms',dec:0,color:'#4ade80'},
+    {title:'FC a riposo',source:'fc_riposo',unit:'bpm',dec:0,color:'#fb923c'}],
+  charts:[
+    {type:'line',title:'Sleep score',label:'Sleep score',source:'sonno',color:'#ec4899'},
+    {type:'line',title:'Ore di sonno',label:'Ore',source:'ore_sonno',color:'#38bdf8'},
+    {type:'line',title:'HRV',label:'HRV (ms)',source:'hrv',color:'#4ade80'},
+    {type:'line',title:'Frequenza cardiaca a riposo',label:'bpm',source:'fc_riposo',color:'#fb923c'}]
+});
+</script></body></html>

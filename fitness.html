@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="assets/style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="assets/config.js"></script><script src="assets/app.js"></script></head>
+<body><script>
+Page.init({
+  title:'Fitness', sub:'Composizione corporea (BIA) e alimentazione.',
+  kpis:[
+    {title:'Peso attuale',source:'peso',unit:'kg',dec:2,color:'#38bdf8'},
+    {title:'Massa grassa',source:'grasso',unit:'%',color:'#fb923c'},
+    {title:'Massa magra (LBM)',source:'lbm',unit:'kg',color:'#2dd4bf'},
+    {title:'Massa muscolare',source:'muscolo',unit:'kg',color:'#4ade80'},
+    {title:'Calorie (ultimo giorno)',source:'kcal',unit:'kcal',dec:0,color:'#facc15'},
+    {title:'Proteine (ultimo giorno)',source:'proteine',unit:'g',dec:0,color:'#ec4899'}],
+  charts:[
+    {type:'line',title:'Peso',label:'Peso (kg)',source:'peso',color:'#38bdf8'},
+    {type:'line',title:'Massa grassa',label:'Massa grassa (%)',source:'grasso',color:'#fb923c'},
+    {type:'line',title:'Massa magra (LBM)',label:'LBM (kg)',source:'lbm',color:'#2dd4bf'},
+    {type:'line',title:'Massa muscolare',label:'Muscolo (kg)',source:'muscolo',color:'#4ade80'},
+    {type:'bar',title:'Calorie giornaliere',label:'kcal',source:'kcal',color:'#facc15'},
+    {type:'bar',title:'Proteine giornaliere',label:'Proteine (g)',source:'proteine',color:'#ec4899'}]
+});
+</script></body></html>

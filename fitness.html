@@ -6,20 +6,37 @@
 <script src="assets/config.js"></script><script src="assets/app.js"></script></head>
 <body><script>
 Page.init({
-  title:'Fitness', sub:'Composizione corporea (BIA) e alimentazione.',
+  title:"Fitness", sub:"Composizione corporea (BIA) e alimentazione.",
   kpis:[
-    {title:'Peso attuale',source:'peso',unit:'kg',dec:2,color:'#38bdf8'},
-    {title:'Massa grassa',source:'grasso',unit:'%',color:'#fb923c'},
-    {title:'Massa magra (LBM)',source:'lbm',unit:'kg',color:'#2dd4bf'},
-    {title:'Massa muscolare',source:'muscolo',unit:'kg',color:'#4ade80'},
-    {title:'Calorie (ultimo giorno)',source:'kcal',unit:'kcal',dec:0,color:'#facc15'},
-    {title:'Proteine (ultimo giorno)',source:'proteine',unit:'g',dec:0,color:'#ec4899'}],
+    {"title": "Peso attuale", "source": "peso", "color": "#38bdf8", "unit": "kg", "dec": 2},
+    {"title": "Massa grassa", "source": "grasso", "color": "#fb923c", "unit": "%"},
+    {"title": "Massa magra (LBM)", "source": "lbm", "color": "#2dd4bf", "unit": "kg"},
+    {"title": "Massa muscolare", "source": "muscolo", "color": "#4ade80", "unit": "kg"},
+    {"title": "Acqua corporea", "source": "acqua", "color": "#38bdf8", "unit": "%"},
+    {"title": "Grasso viscerale", "source": "visc", "color": "#fb923c", "dec": 0},
+    {"title": "Metabolismo basale", "source": "bmr", "color": "#facc15", "unit": "kcal", "dec": 0},
+    {"title": "Età metabolica", "source": "eta_met", "color": "#ec4899", "unit": "anni", "dec": 0},
+    {"title": "Rapporto muscolo/grasso", "color": "#4ade80", "calc": "mg", "dec": 2, "note": "ultimi valori"},
+    {"title": "FFMI", "color": "#2dd4bf", "calc": "ffmi", "note": "indice massa magra"},
+    {"title": "Calorie", "source": "kcal", "color": "#facc15", "kind": "avg7", "unit": "kcal", "dec": 0},
+    {"title": "Proteine", "source": "proteine", "color": "#ec4899", "kind": "avg7", "unit": "g", "dec": 0},
+    {"title": "Proteine per kg", "color": "#ec4899", "calc": "protkg", "unit": "g/kg", "dec": 2, "note": "media 7 gg"},
+    {"title": "Proteine", "color": "#ec4899", "calc": "macroP", "unit": "% kcal", "dec": 0, "note": "media 7 gg"},
+    {"title": "Carboidrati", "color": "#facc15", "calc": "macroC", "unit": "% kcal", "dec": 0, "note": "media 7 gg"},
+    {"title": "Grassi", "color": "#fb923c", "calc": "macroF", "unit": "% kcal", "dec": 0, "note": "media 7 gg"},
+    {"title": "Aderenza target kcal", "color": "#4ade80", "calc": "aderenza", "unit": "%", "dec": 0, "note": "giorni entro ±10% (30 gg)"},
+    {"title": "TDEE stimato", "color": "#facc15", "calc": "tdee", "unit": "kcal", "dec": 0, "note": "kcal assunte − variazione peso (28 gg)"}],
   charts:[
-    {type:'line',title:'Peso',label:'Peso (kg)',source:'peso',color:'#38bdf8'},
-    {type:'line',title:'Massa grassa',label:'Massa grassa (%)',source:'grasso',color:'#fb923c'},
-    {type:'line',title:'Massa magra (LBM)',label:'LBM (kg)',source:'lbm',color:'#2dd4bf'},
-    {type:'line',title:'Massa muscolare',label:'Muscolo (kg)',source:'muscolo',color:'#4ade80'},
-    {type:'bar',title:'Calorie giornaliere',label:'kcal',source:'kcal',color:'#facc15'},
-    {type:'bar',title:'Proteine giornaliere',label:'Proteine (g)',source:'proteine',color:'#ec4899'}]
+    {"type": "line", "title": "Peso", "label": "Peso (kg)", "source": "peso", "color": "#38bdf8"},
+    {"type": "line", "title": "Massa grassa", "label": "Massa grassa (%)", "source": "grasso", "color": "#fb923c"},
+    {"type": "line", "title": "Massa magra (LBM)", "label": "LBM (kg)", "source": "lbm", "color": "#2dd4bf"},
+    {"type": "line", "title": "Massa muscolare", "label": "Muscolo (kg)", "source": "muscolo", "color": "#4ade80"},
+    {"type": "line", "title": "Acqua corporea", "label": "Acqua (%)", "source": "acqua", "color": "#38bdf8"},
+    {"type": "line", "title": "Grasso viscerale", "label": "Grasso viscerale", "source": "visc", "color": "#fb923c"},
+    {"type": "line", "title": "Metabolismo basale", "label": "BMR (kcal)", "source": "bmr", "color": "#facc15"},
+    {"type": "line", "title": "Età metabolica", "label": "Anni", "source": "eta_met", "color": "#ec4899"},
+    {"type": "bar", "title": "Calorie giornaliere", "label": "kcal", "source": "kcal", "agg": "avg", "color": "#facc15"},
+    {"type": "bar", "title": "Proteine giornaliere", "label": "Proteine (g)", "source": "proteine", "agg": "avg", "color": "#ec4899"},
+    {"type": "scatter", "title": "Correlazione: calorie vs variazione di peso (settimanale)", "label": "Settimane", "x": "kcal", "y": "peso", "dy": true, "gran": "week", "color": "#facc15", "xl": "kcal medie settimana", "yl": "Δ peso vs settimana prec. (kg)"}]
 });
 </script></body></html>

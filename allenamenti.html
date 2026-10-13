@@ -6,13 +6,20 @@
 <script src="assets/config.js"></script><script src="assets/app.js"></script></head>
 <body><script>
 Page.init({
-  title:'Allenamenti', sub:'Volume, durata e frequenza delle sessioni.',
+  title:"Allenamenti", sub:"Volume, durata, frequenza e carico delle sessioni.",
   kpis:[
-    {title:'Ultimo volume sessione',source:'volume',unit:'kg',dec:0,color:'#facc15'},
-    {title:'Ultima durata',source:'durata',unit:'min',dec:0,color:'#38bdf8'}],
+    {"title": "Ultimo volume sessione", "source": "volume", "color": "#facc15", "unit": "kg", "dec": 0},
+    {"title": "Ultima durata", "source": "durata", "color": "#38bdf8", "unit": "min", "dec": 0},
+    {"title": "Sessioni a settimana", "color": "#4ade80", "calc": "sess", "dec": 1, "note": "media 28 gg"},
+    {"title": "Volume settimanale", "color": "#facc15", "calc": "volsett", "unit": "kg", "dec": 0, "note": "media 28 gg"},
+    {"title": "Giorni dall'ultimo allenamento", "color": "#fb923c", "calc": "giorni", "dec": 0},
+    {"title": "Streak settimane", "color": "#4ade80", "calc": "streak", "dec": 0, "note": "obiettivo sessioni/sett. raggiunto"},
+    {"title": "Densità allenamento", "color": "#38bdf8", "calc": "dens", "unit": "kg/min", "dec": 0, "note": "28 gg"},
+    {"title": "Carico acuto/cronico", "color": "#ec4899", "calc": "acwr", "dec": 2, "note": "7 gg / media 28 gg (ideale ~0.8–1.3)"}],
   charts:[
-    {type:'bar',wide:true,title:'Volume per sessione (kg)',label:'Volume (kg)',source:'volume',agg:'sum',color:'#facc15'},
-    {type:'bar',title:'Durata allenamenti (min)',label:'Minuti',source:'durata',agg:'sum',color:'#38bdf8'},
-    {type:'bar',title:'Numero di sessioni',label:'Sessioni',source:'sessioni',agg:'sum',color:'#4ade80'}]
+    {"type": "bar", "title": "Volume per sessione (kg)", "label": "Volume (kg)", "source": "volume", "agg": "sum", "color": "#facc15", "wide": true},
+    {"type": "bar", "title": "Durata allenamenti (min)", "label": "Minuti", "source": "durata", "agg": "sum", "color": "#38bdf8"},
+    {"type": "bar", "title": "Numero di sessioni", "label": "Sessioni", "source": "sessioni", "agg": "sum", "color": "#4ade80"},
+    {"type": "scatter", "title": "Correlazione: volume del giorno prima vs HRV", "label": "Giorni", "x": "volume", "xagg": "sum", "y": "hrv", "lag": 1, "color": "#ec4899", "xl": "Volume (kg)", "yl": "HRV il giorno dopo (ms)"}]
 });
 </script></body></html>

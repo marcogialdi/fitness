@@ -2,8 +2,8 @@
 // Lascia SUPABASE_URL vuoto per vedere i dati di esempio (demo).
 // La chiave "anon" è pubblica per natura: proteggi i dati con le policy RLS di Supabase.
 window.CONFIG = {
-  SUPABASE_URL: "",
-  SUPABASE_ANON_KEY: "",
+  SUPABASE_URL: "https://onrwqsbzakekauejmjer.supabase.co",
+  SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ucndxc2J6YWtla2F1ZWptamVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEyMTE0MjEsImV4cCI6MjEwNjc4NzQyMX0.1mpLds2hTvuaFat18GN7KrtDAOcAb3r6H2TmsA9i8H0",
 
   // Ogni sorgente = una colonna di una tabella. Adatta table/date/col al tuo schema.
   // agg: come aggregare più valori nello stesso periodo (avg | sum | last | max)

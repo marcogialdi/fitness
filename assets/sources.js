@@ -10,6 +10,11 @@ Object.assign(window.CONFIG, {
     visc:    { table: "bia_measurements", date: "measurement_time", col: "visceral_fat" },
     bmr:     { table: "bia_measurements", date: "measurement_time", col: "basal_metabolism" },
     eta_met: { table: "bia_measurements", date: "measurement_time", col: "body_age" },
+    imp_br_dx: { table: "bia_measurements", date: "measurement_time", col: "right_arm_bioelectrical_impedance" },
+    imp_br_sx: { table: "bia_measurements", date: "measurement_time", col: "left_arm_bioelectrical_impedance" },
+    imp_tronco: { table: "bia_measurements", date: "measurement_time", col: "trunk_bioelectrical_impedance" },
+    imp_gb_dx: { table: "bia_measurements", date: "measurement_time", col: "right_leg_bioelectrical_impedance" },
+    imp_gb_sx: { table: "bia_measurements", date: "measurement_time", col: "left_leg_bioelectrical_impedance" },
     smi:     { table: "bia_measurements", date: "measurement_time", col: "smi" },
     score:   { table: "bia_measurements", date: "measurement_time", col: "body_score" },
 

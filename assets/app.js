@@ -148,6 +148,22 @@ function mdraw(){
   M.querySelector("#next").disabled = off === 0;
 }
 
+/* ---------- popup di aiuto ---------- */
+let H;
+function openHelp(h, title){
+  if (!H) {
+    H = $(`<div id="help" role="dialog" aria-modal="true" aria-labelledby="ht"><div class="hbox"><h3 id="ht"></h3><div class="hb"></div><button class="pill on">Chiudi</button></div></div>`);
+    document.body.append(H);
+    const close = () => { H.classList.remove("open"); H.prev?.focus(); };
+    H.onclick = e => { if (e.target === H) close(); };
+    H.querySelector("button").onclick = close;
+    addEventListener("keydown", e => { if (e.key === "Escape" && H.classList.contains("open")) close(); });
+  }
+  const row = (l, x) => x ? `<p><b>${l}</b> ${x}</p>` : "";
+  H.querySelector("h3").textContent = h.t || title;
+  H.querySelector(".hb").innerHTML = row("Cos'è:", h.d) + row("Come leggerlo:", h.r) + row("Da sapere:", h.n);
+  H.prev = document.activeElement; H.classList.add("open"); H.querySelector("button").focus();
+}
 /* ---------- KPI: ultimo valore + variazione, medie 7 gg, KPI calcolati ---------- */
 const iso = o => new Date(Date.now() - o * 864e5).toISOString().slice(0, 10);
 const inW = (r, a, b = 0) => r.filter(x => x.d > iso(a) && x.d <= iso(b)); // giorni (b, a] fa
@@ -179,8 +195,10 @@ const CALC = {
 // KPI: {title, source, kind:'last'|'avg7'}  oppure  {title, calc:'nome'}
 async function addKpis(host, list){
   for (const k of list) {
-    const el = $(`<div class="card kpi"><small>${k.title}</small><div class="v" style="color:${k.color}">…</div><div class="d"></div></div>`);
+    const hk = k.calc || k.source, hp = (window.HELP || {})[hk];
+    const el = $(`<div class="card kpi">${hp ? `<button class="info" aria-label="Spiegazione: ${k.title}" title="Cos'è?">i</button>` : ""}<small>${k.title}</small><div class="v" style="color:${k.color}">…</div><div class="d"></div></div>`);
     host.append(el);
+    if (hp) el.querySelector(".info").onclick = () => openHelp(hp, k.title);
     (async () => {
       let v, sub = "", dl = null, dd = 30;
       if (k.calc) { const c = CALC[k.calc], D = {}; (await Promise.all(c.n.map(load))).forEach((r, i) => D[c.n[i]] = r); v = c.f(D); sub = k.note || ""; }
@@ -271,7 +289,10 @@ async function init(p){
     state.cards.forEach(render);
   };
   addKpis(k, p.kpis);
-  for (const c of p.charts) await addChart(ch, c);
+  for (const c of p.charts) {
+    if (c.section) { ch.append($(`<div class="sec"><h2>${c.section}</h2>${c.note ? `<p class="msg">${c.note}</p>` : ""}</div>`)); continue; }
+    await addChart(ch, c);
+  }
 }
 window.Page = { init, shell, C };
 })();

@@ -46,3 +46,13 @@ label.f{display:flex;flex-direction:column;font-size:.85rem;color:var(--mut);gap
 .card h3{margin:0 0 8px}
 .ok{color:var(--green)}.err{color:var(--orange)}
 button.mini{background:none;border:none;color:var(--txt);cursor:pointer;font-size:1rem}
+.kpi{position:relative}
+.info{position:absolute;top:14px;right:14px;width:26px;height:26px;border-radius:50%;border:1px solid var(--line);background:var(--bg);color:var(--mut);font:italic 700 .95rem Georgia,serif;cursor:pointer;line-height:1}
+.info:hover{color:var(--blue);border-color:var(--blue)}
+#help{position:fixed;inset:0;background:#020617cc;display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
+#help.open{display:flex}
+.hbox{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px;max-width:460px;width:100%}
+.hbox h3{margin:0 0 12px;color:var(--blue);font-size:1.3rem}
+.hbox p{margin:0 0 10px}.hbox .pill{margin-top:8px}
+.charts .sec{grid-column:1/-1;margin-top:12px}
+.sec h2{margin:0 0 4px;font-size:1.4rem;color:var(--txt)}.sec p{margin:0}

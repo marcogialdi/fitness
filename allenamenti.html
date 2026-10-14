@@ -3,10 +3,10 @@
 <link rel="stylesheet" href="assets/style.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="assets/config.js"></script><script src="assets/app.js"></script></head>
+<script src="assets/config.js"></script><script src="assets/sources.js"></script><script src="assets/app.js"></script></head>
 <body><script>
 Page.init({
-  title:"Allenamenti", sub:"Volume, durata, frequenza e carico delle sessioni.",
+  title:"Allenamenti", sub:"Volume, frequenza, carico e forza (1RM stimato) delle sessioni.",
   kpis:[
     {"title": "Ultimo volume sessione", "source": "volume", "color": "#facc15", "unit": "kg", "dec": 0},
     {"title": "Ultima durata", "source": "durata", "color": "#38bdf8", "unit": "min", "dec": 0},
@@ -15,11 +15,21 @@ Page.init({
     {"title": "Giorni dall'ultimo allenamento", "color": "#fb923c", "calc": "giorni", "dec": 0},
     {"title": "Streak settimane", "color": "#4ade80", "calc": "streak", "dec": 0, "note": "obiettivo sessioni/sett. raggiunto"},
     {"title": "Densità allenamento", "color": "#38bdf8", "calc": "dens", "unit": "kg/min", "dec": 0, "note": "28 gg"},
-    {"title": "Carico acuto/cronico", "color": "#ec4899", "calc": "acwr", "dec": 2, "note": "7 gg / media 28 gg (ideale ~0.8–1.3)"}],
+    {"title": "Carico acuto/cronico", "color": "#ec4899", "calc": "acwr", "dec": 2, "note": "7 gg / media 28 gg (ideale ~0.8–1.3)"},
+    {"title": "Record personali (30 gg)", "color": "#facc15", "calc": "pr", "dec": 0, "note": "esercizi chiave con nuovo 1RM stimato"},
+    {"title": "1RM stimato panca", "source": "e1rm_panca", "color": "#ec4899", "unit": "kg", "dec": 1},
+    {"title": "1RM stimato squat", "source": "e1rm_squat", "color": "#4ade80", "unit": "kg", "dec": 1},
+    {"title": "1RM stimato stacco", "source": "e1rm_stacco", "color": "#fb923c", "unit": "kg", "dec": 1},
+    {"title": "1RM stimato military", "source": "e1rm_military", "color": "#38bdf8", "unit": "kg", "dec": 1}],
   charts:[
     {"type": "bar", "title": "Volume per sessione (kg)", "label": "Volume (kg)", "source": "volume", "agg": "sum", "color": "#facc15", "wide": true},
+    {"type": "groups", "title": "Volume per gruppo muscolare (ultimi 28 gg)", "label": "Volume (kg)", "color": "#2dd4bf", "days": 28, "wide": true},
     {"type": "bar", "title": "Durata allenamenti (min)", "label": "Minuti", "source": "durata", "agg": "sum", "color": "#38bdf8"},
     {"type": "bar", "title": "Numero di sessioni", "label": "Sessioni", "source": "sessioni", "agg": "sum", "color": "#4ade80"},
-    {"type": "scatter", "title": "Correlazione: volume del giorno prima vs HRV", "label": "Giorni", "x": "volume", "xagg": "sum", "y": "hrv", "lag": 1, "color": "#ec4899", "xl": "Volume (kg)", "yl": "HRV il giorno dopo (ms)"}]
+    {"type": "bar", "title": "Serie totali (no warm-up)", "label": "Serie", "source": "serie", "agg": "sum", "color": "#fb923c"},
+    {"type": "line", "title": "1RM stimato – panca", "label": "kg", "source": "e1rm_panca", "agg": "max", "color": "#ec4899"},
+    {"type": "line", "title": "1RM stimato – squat", "label": "kg", "source": "e1rm_squat", "agg": "max", "color": "#4ade80"},
+    {"type": "line", "title": "1RM stimato – stacco", "label": "kg", "source": "e1rm_stacco", "agg": "max", "color": "#fb923c"},
+    {"type": "line", "title": "1RM stimato – military press", "label": "kg", "source": "e1rm_military", "agg": "max", "color": "#38bdf8"}]
 });
 </script></body></html>

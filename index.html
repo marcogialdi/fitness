@@ -3,18 +3,18 @@
 <link rel="stylesheet" href="assets/style.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="assets/config.js"></script><script src="assets/app.js"></script></head>
+<script src="assets/config.js"></script><script src="assets/sources.js"></script><script src="assets/app.js"></script></head>
 <body><script>
 Page.init({
-  title:'Panoramica Generale', sub:'Sintesi dei principali KPI e trend di composizione corporea, allenamenti e benessere.',
+  title:"Panoramica Generale", sub:"Sintesi dei principali KPI e trend di composizione corporea, allenamenti e benessere.",
   kpis:[
-    {title:'Peso attuale',source:'peso',unit:'kg',dec:2,color:'#38bdf8'},
-    {title:'Massa magra (LBM)',source:'lbm',unit:'kg',color:'#2dd4bf'},
-    {title:'Massa muscolare',source:'muscolo',unit:'kg',color:'#4ade80'},
-    {title:'Massa grassa',source:'grasso',unit:'%',color:'#fb923c'}],
+    {"title": "Peso attuale", "source": "peso", "color": "#38bdf8", "unit": "kg", "dec": 2},
+    {"title": "Massa magra (LBM)", "source": "lbm", "color": "#2dd4bf", "unit": "kg"},
+    {"title": "Massa muscolare", "source": "muscolo", "color": "#4ade80", "unit": "kg"},
+    {"title": "Massa grassa", "source": "grasso", "color": "#fb923c", "unit": "%"}],
   charts:[
-    {type:'bar',wide:true,title:'🏋️ Volume allenamenti per sessione (kg) & trendline',label:'Volume (kg)',source:'volume',agg:'sum',color:'#facc15'},
-    {type:'line',title:'Trend peso & massa magra (BIA)',label:'Peso (kg)',source:'peso',color:'#38bdf8'},
-    {type:'line',title:'Trend sonno & recupero (RingConn)',label:'Sleep score',source:'sonno',color:'#ec4899'}]
+    {"type": "bar", "title": "🏋️ Volume allenamenti per sessione (kg) & trendline", "label": "Volume (kg)", "source": "volume", "agg": "sum", "color": "#facc15", "wide": true},
+    {"type": "line", "title": "Trend peso & massa magra (BIA)", "label": "Peso (kg)", "source": "peso", "color": "#38bdf8"},
+    {"type": "line", "title": "Trend sonno & recupero (RingConn)", "label": "Sleep score", "source": "sonno", "color": "#ec4899"}]
 });
 </script></body></html>

@@ -3,36 +3,27 @@
 <link rel="stylesheet" href="assets/style.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="assets/config.js"></script><script src="assets/app.js"></script></head>
+<script src="assets/config.js"></script><script src="assets/sources.js"></script><script src="assets/app.js"></script></head>
 <body><script>
 Page.init({
-  title:"Wellness", sub:"Sonno e recupero (RingConn).",
+  title:"Wellness", sub:"Sonno, attività e stress (report settimanali RingConn).",
   kpis:[
-    {"title": "Sleep score", "source": "sonno", "color": "#ec4899", "kind": "avg7", "dec": 0},
-    {"title": "Ore di sonno", "source": "ore_sonno", "color": "#38bdf8", "kind": "avg7", "unit": "h"},
-    {"title": "Debito di sonno", "color": "#fb923c", "calc": "debito", "unit": "h", "note": "7 gg vs obiettivo"},
-    {"title": "Regolarità addormentamento", "color": "#facc15", "calc": "regol", "unit": "min", "dec": 0, "note": "dev. standard 14 gg (più basso = meglio)"},
-    {"title": "HRV", "source": "hrv", "color": "#4ade80", "kind": "avg7", "unit": "ms", "dec": 0},
-    {"title": "HRV vs baseline", "color": "#4ade80", "calc": "hrvb", "unit": "%", "dec": 1, "note": "media 7 gg vs 60 gg"},
-    {"title": "FC a riposo", "source": "fc_riposo", "color": "#fb923c", "kind": "avg7", "unit": "bpm", "dec": 0},
-    {"title": "Efficienza sonno", "source": "efficienza", "color": "#38bdf8", "kind": "avg7", "unit": "%", "dec": 0},
-    {"title": "Sonno profondo", "source": "deep", "color": "#ec4899", "kind": "avg7", "unit": "%"},
-    {"title": "REM", "source": "rem", "color": "#2dd4bf", "kind": "avg7", "unit": "%"},
-    {"title": "Temperatura cutanea", "source": "temp", "color": "#facc15", "kind": "avg7", "unit": "°C"},
-    {"title": "SpO₂", "source": "spo2", "color": "#38bdf8", "kind": "avg7", "unit": "%", "dec": 0},
-    {"title": "Passi", "source": "passi", "color": "#4ade80", "kind": "avg7", "dec": 0}],
+    {"title": "Sleep score", "source": "sonno", "color": "#ec4899", "dec": 0},
+    {"title": "Ore di sonno", "source": "ore_sonno", "color": "#38bdf8", "unit": "h"},
+    {"title": "FC media nel sonno", "source": "fc_sonno", "color": "#fb923c", "unit": "bpm", "dec": 0},
+    {"title": "Activity score", "source": "attivita", "color": "#4ade80", "dec": 0},
+    {"title": "Passi medi", "source": "passi", "color": "#2dd4bf", "dec": 0},
+    {"title": "Calorie attive medie", "source": "cal_att", "color": "#facc15", "unit": "kcal", "dec": 0},
+    {"title": "Stress score", "source": "stress", "color": "#fb923c", "dec": 0}],
   charts:[
     {"type": "line", "title": "Sleep score", "label": "Sleep score", "source": "sonno", "color": "#ec4899"},
     {"type": "line", "title": "Ore di sonno", "label": "Ore", "source": "ore_sonno", "color": "#38bdf8"},
-    {"type": "line", "title": "HRV", "label": "HRV (ms)", "source": "hrv", "color": "#4ade80"},
-    {"type": "line", "title": "Frequenza cardiaca a riposo", "label": "bpm", "source": "fc_riposo", "color": "#fb923c"},
-    {"type": "line", "title": "Efficienza del sonno", "label": "Efficienza (%)", "source": "efficienza", "color": "#38bdf8"},
-    {"type": "line", "title": "Sonno profondo", "label": "Profondo (%)", "source": "deep", "color": "#ec4899"},
-    {"type": "line", "title": "REM", "label": "REM (%)", "source": "rem", "color": "#2dd4bf"},
-    {"type": "line", "title": "Temperatura cutanea", "label": "°C", "source": "temp", "color": "#facc15"},
-    {"type": "line", "title": "SpO₂", "label": "SpO₂ (%)", "source": "spo2", "color": "#38bdf8"},
-    {"type": "bar", "title": "Passi", "label": "Passi", "source": "passi", "agg": "avg", "color": "#4ade80"},
-    {"type": "scatter", "title": "Correlazione: sleep score vs volume allenamento del giorno dopo", "label": "Giorni", "x": "sonno", "y": "volume", "yagg": "sum", "lag": 1, "color": "#ec4899", "xl": "Sleep score (notte precedente)", "yl": "Volume (kg)"},
-    {"type": "scatter", "title": "Correlazione: HRV vs volume allenamento del giorno dopo", "label": "Giorni", "x": "hrv", "y": "volume", "yagg": "sum", "lag": 1, "color": "#4ade80", "xl": "HRV (giorno prima)", "yl": "Volume (kg)"}]
+    {"type": "line", "title": "FC media nel sonno", "label": "bpm", "source": "fc_sonno", "color": "#fb923c"},
+    {"type": "line", "title": "Activity score", "label": "Activity", "source": "attivita", "color": "#4ade80"},
+    {"type": "bar", "title": "Passi medi", "label": "Passi", "source": "passi", "agg": "avg", "color": "#2dd4bf"},
+    {"type": "bar", "title": "Calorie attive medie", "label": "kcal", "source": "cal_att", "agg": "avg", "color": "#facc15"},
+    {"type": "line", "title": "Stress score", "label": "Stress", "source": "stress", "color": "#fb923c"},
+    {"type": "scatter", "title": "Correlazione: sleep score vs volume allenamento (settimanale)", "label": "Settimane", "x": "sonno", "y": "volume", "yagg": "sum", "gran": "week", "color": "#ec4899", "xl": "Sleep score medio", "yl": "Volume settimana (kg)"},
+    {"type": "scatter", "title": "Correlazione: stress vs sleep score (settimanale)", "label": "Settimane", "x": "stress", "y": "sonno", "gran": "week", "color": "#fb923c", "xl": "Stress score", "yl": "Sleep score"}]
 });
 </script></body></html>

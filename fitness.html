@@ -3,7 +3,7 @@
 <link rel="stylesheet" href="assets/style.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="assets/config.js"></script><script src="assets/sources.js"></script><script src="assets/app.js"></script></head>
+<script src="assets/config.js"></script><script src="assets/sources.js"></script><script src="assets/help.js"></script><script src="assets/app.js"></script></head>
 <body><script>
 Page.init({
   title:"Fitness", sub:"Composizione corporea (BIA).",
@@ -30,6 +30,12 @@ Page.init({
     {"type": "line", "title": "Metabolismo basale", "label": "BMR (kcal)", "source": "bmr", "color": "#facc15"},
     {"type": "line", "title": "Età corporea", "label": "Anni", "source": "eta_met", "color": "#ec4899"},
     {"type": "line", "title": "SMI", "label": "SMI", "source": "smi", "color": "#4ade80"},
-    {"type": "line", "title": "Body score", "label": "Score", "source": "score", "color": "#ec4899"}]
+    {"type": "line", "title": "Body score", "label": "Score", "source": "score", "color": "#ec4899"},
+    {"section": "Impedenza bioelettrica", "note": "Resistenza che il corpo oppone alla corrente della bilancia, misurata per segmento in ohm (Ω). È il dato grezzo da cui la bilancia ricava acqua, grasso e muscolo: da sola non indica se stai meglio o peggio. Serve per controllare che le misure siano coerenti e per notare cambiamenti di idratazione. Viene salvato solo il primo dei due valori del file."},
+    {"type": "line", "title": "Impedenza braccio destro", "label": "Ω", "source": "imp_br_dx", "color": "#38bdf8"},
+    {"type": "line", "title": "Impedenza braccio sinistro", "label": "Ω", "source": "imp_br_sx", "color": "#2dd4bf"},
+    {"type": "line", "title": "Impedenza tronco", "label": "Ω", "source": "imp_tronco", "color": "#facc15"},
+    {"type": "line", "title": "Impedenza gamba destra", "label": "Ω", "source": "imp_gb_dx", "color": "#fb923c"},
+    {"type": "line", "title": "Impedenza gamba sinistra", "label": "Ω", "source": "imp_gb_sx", "color": "#ec4899"}]
 });
 </script></body></html>

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="assets/style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="assets/config.js"></script><script src="assets/sources.js"></script><script src="assets/help.js"></script><script src="assets/app.js"></script></head>
+<body><script>
+Page.init({
+  title:"Panoramica Generale", sub:"Sintesi dei principali KPI e trend di composizione corporea, allenamenti e benessere.",
+  kpis:[
+    {"title": "Peso attuale", "source": "peso", "color": "#38bdf8", "unit": "kg", "dec": 2},
+    {"title": "Massa magra (LBM)", "source": "lbm", "color": "#2dd4bf", "unit": "kg"},
+    {"title": "Massa muscolare", "source": "muscolo", "color": "#4ade80", "unit": "kg"},
+    {"title": "Massa grassa", "source": "grasso", "color": "#fb923c", "unit": "%"}],
+  charts:[
+    {"type": "bar", "title": "🏋️ Volume allenamenti per sessione (kg) & trendline", "label": "Volume (kg)", "source": "volume", "agg": "sum", "color": "#facc15", "wide": true},
+    {"type": "line", "title": "Trend peso & massa magra (BIA)", "label": "Peso (kg)", "source": "peso", "color": "#38bdf8"},
+    {"type": "line", "title": "Trend sonno & recupero (RingConn)", "label": "Sleep score", "source": "sonno", "color": "#ec4899"}]
+});
+</script></body></html>

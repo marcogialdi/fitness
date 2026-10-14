@@ -19,21 +19,42 @@ function demo(c){
   }
   return rows;
 }
-let sb;
+let sb; const client = () => sb ||= window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_ANON_KEY);
+const day = t => String(t).length > 10 ? new Date(t).toLocaleDateString("sv-SE") : String(t).slice(0, 10);
+const hm = s => { const n = String(s).match(/\d+(?:[.,]\d+)?/g)?.map(x => +x.replace(",", ".")); return !n ? NaN : n.length > 1 ? n[0] + n[1] / 60 : (n[0] > 24 ? n[0] / 60 : n[0]); };
+async function fetchAll(table, cols, order, notnull){ // paginazione con ordinamento stabile (order + id)
+  let out = [], from = 0;
+  for (;;) {
+    let q = client().from(table).select(cols); if (notnull) q = q.not(notnull, "is", null);
+    const { data, error } = await q.order(order).order("id").range(from, from + 999);
+    if (error) throw error; out = out.concat(data); if (data.length < 1000) break; from += 1000;
+  }
+  return out;
+}
+let setsP, sessP;
+const sets = () => setsP ||= C.SUPABASE_URL ? fetchAll("workouts", "start_time,end_time,exercise_title,set_type,weight_kg,reps", "start_time") : Promise.resolve([]);
+const sessions = () => sessP ||= (async () => { // da righe-serie a sessioni
+  const m = new Map();
+  for (const r of await sets()) {
+    let s = m.get(r.start_time);
+    if (!s) m.set(r.start_time, s = { d: day(r.start_time), dur: (Date.parse(r.end_time) - Date.parse(r.start_time)) / 6e4, vol: 0, n: 0, x: [] });
+    if (r.set_type === "warmup") continue;
+    const w = +r.weight_kg || 0, k = +r.reps || 0;
+    s.vol += w * k; s.n++; if (w && k) s.x.push([r.exercise_title || "", w * (1 + k / 30)]); // Epley
+  }
+  return [...m.values()];
+})();
+const METRIC = { volume: s => s.vol, durata: s => s.dur, sessioni: () => 1, serie: s => s.n };
 function load(id){
   return cache[id] ||= (async () => {
     const s = C.SOURCES[id];
-    if (!C.SUPABASE_URL || !window.supabase) return demo(s.demo);
-    sb ||= window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_ANON_KEY);
-    let out = [], from = 0;
-    for (;;) {
-      const { data, error } = await sb.from(s.table).select(`${s.date},${s.col}`).not(s.col, "is", null).order(s.date).range(from, from + 999);
-      if (error) throw error;
-      out = out.concat(data.map(r => ({ d: String(r[s.date]).slice(0, 10), v: +r[s.col] })));
-      if (data.length < 1000) break;
-      from += 1000;
+    if (!C.SUPABASE_URL || !window.supabase) return s.demo ? demo(s.demo) : [];
+    if (s.kind === "workouts") {
+      const f = s.match ? (x => { const v = x.x.filter(e => s.match.test(e[0])).map(e => e[1]); return v.length ? Math.max(...v) : null; }) : METRIC[s.metric];
+      return (await sessions()).map(x => ({ d: x.d, v: f(x) })).filter(r => r.v != null && isFinite(r.v));
     }
-    return out;
+    const rows = await fetchAll(s.table, `${s.date},${s.col}`, s.date, s.col);
+    return rows.map(r => ({ d: day(r[s.date]), v: s.parse === "hm" ? hm(r[s.col]) : +r[s.col] })).filter(r => isFinite(r.v));
   })();
 }
 
@@ -83,6 +104,7 @@ async function series(cfg){
 }
 async function render(o){
   if (o.cfg.type === "scatter") { o.s = await pairs(o.cfg); o.chart = drawScatter(o.canvas, o.cfg, o.s, o.chart); return; }
+  if (o.cfg.type === "groups") { o.s = await groupsData(o.cfg); o.chart = drawGroups(o.canvas, o.cfg, o.s, o.chart); return; }
   const s = o.s = await series(o.cfg), st = Math.max(0, s.vals.length - WIN[state.gran]);
   o.chart = draw(o.canvas, o.cfg, s.labels.slice(st), s.vals.slice(st), s.tr.slice(st), o.chart);
 }
@@ -90,7 +112,8 @@ function addChart(host, cfg){
   const el = $(`<section class="card chart ${cfg.wide ? "wide" : ""}"><header><h3 style="color:${cfg.color}">${cfg.title}</h3><button class="zoom">🔍 Clicca per ingrandire</button></header><div class="cv"><canvas></canvas></div></section>`);
   host.append(el);
   const o = { cfg, canvas: el.querySelector("canvas") };
-  el.querySelector(".cv").onclick = el.querySelector(".zoom").onclick = () => openModal(o);
+  if (cfg.type === "groups") { el.querySelector(".zoom").remove(); el.querySelector(".cv").style.cursor = "default"; }
+  else el.querySelector(".cv").onclick = el.querySelector(".zoom").onclick = () => openModal(o);
   state.cards.push(o);
   return render(o);
 }
@@ -150,6 +173,7 @@ const CALC = {
   acwr: { n: ["volume"], f: D => sum(V(inW(D.volume, 7))) / (sum(V(inW(D.volume, 28))) / 4) },
   debito: { n: ["ore_sonno"], f: D => { const a = V(inW(D.ore_sonno, 7)); return T.sonno_h * a.length - sum(a); } },
   regol: { n: ["addorm"], f: D => sd(V(inW(D.addorm, 14))) },
+  pr: { n: Object.keys(C.SOURCES).filter(k => k.startsWith("e1rm_")), f: D => Object.values(D).filter(r => { const a = Math.max(...V(inW(r, 30))), b = Math.max(...V(r.filter(x => x.d <= iso(30)))); return a > 0 && isFinite(b) && a > b; }).length },
   hrvb:  { n: ["hrv"], f: D => 100 * (avg(V(inW(D.hrv, 7))) / avg(V(inW(D.hrv, 60))) - 1) }
 };
 // KPI: {title, source, kind:'last'|'avg7'}  oppure  {title, calc:'nome'}
@@ -168,7 +192,11 @@ async function addKpis(host, list){
       const dec = k.dec ?? 1;
       el.querySelector(".v").textContent = isFinite(v) ? `${v.toFixed(dec)} ${k.unit || ""}`.trim() : "n/d";
       el.querySelector(".d").textContent = sub + (dl != null && isFinite(dl) ? ` · ${dl >= 0 ? "▲" : "▼"} ${Math.abs(dl).toFixed(dec)} vs ${dd} gg prec.` : "");
-    })().catch(() => { el.querySelector(".v").textContent = "errore"; });
+    })().catch(e => {
+      console.error("KPI", k.title, e);
+      el.querySelector(".v").textContent = "errore";
+      el.querySelector(".d").textContent = e.message || String(e); // motivo reale (tabella/colonna inesistente, chiave errata…)
+    });
   }
 }
 /* ---------- template dispersione (correlazioni) ---------- */
@@ -187,6 +215,22 @@ async function pairs(c){
     r = sxy / Math.sqrt(sxx * syy); line = [{ x: lo, y: my + b * (lo - mx) }, { x: hi, y: my + b * (hi - mx) }];
   }
   return { pts, line, r };
+}
+async function groupsData(c){
+  const cut = iso(c.days || 28), g = {}, M = Object.entries(C.MUSCLES || {});
+  for (const r of await sets()) {
+    if (r.set_type === "warmup" || day(r.start_time) <= cut) continue;
+    const k = (M.find(([, re]) => re.test(r.exercise_title || "")) || ["Altro"])[0];
+    g[k] = (g[k] || 0) + (+r.weight_kg || 0) * (+r.reps || 0);
+  }
+  const e = Object.entries(g).sort((a, b) => b[1] - a[1]);
+  return { labels: e.map(x => x[0]), vals: e.map(x => Math.round(x[1])) };
+}
+function drawGroups(cv, c, s, old){
+  old && old.destroy(); const mut = "#94a3b8";
+  return new Chart(cv, { type: "bar", data: { labels: s.labels, datasets: [{ label: c.label, data: s.vals, backgroundColor: c.color + "bb", borderColor: c.color, borderWidth: 1, borderRadius: 4 }] },
+    options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { labels: { color: mut } } },
+      scales: { x: { ticks: { color: mut }, grid: { color: "#334155" } }, y: { ticks: { color: mut }, grid: { display: false } } } } });
 }
 function drawScatter(cv, c, s, old){
   old && old.destroy();

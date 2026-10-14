@@ -38,7 +38,7 @@ Object.assign(window.CONFIG, {
     cal_att:   { table: "ringconn_weekly_reports", date: "week_end", col: "calories_avg" },
     stress:    { table: "ringconn_weekly_reports", date: "week_end", col: "stress_score" }
   },
-  TARGET: { altezza_m: 1.73, sessioni: 3 },
+  TARGET: { altezza_m: 1.80, sessioni: 3 },
   GROUPS: [
     { label: "BIA", source: "peso", color: "#38bdf8" },
     { label: "Workouts", source: "volume", color: "#facc15" },
@@ -59,7 +59,7 @@ Object.assign(window.CONFIG, {
 window.CONFIG.TABLES = (() => {
   const cols = (ty, s) => Object.fromEntries(s.split(/\s+/).map(c => [c, ty]));
   return {
-    bia_measurements: { label: "BIA", req: "measurement_time", cols: {
+    bia_measurements: { label: "BIA", req: "measurement_time", uniq: ["measurement_time"], cols: {
       ...cols("ts", "measurement_time"),
       ...cols("int", "heart_rate visceral_fat basal_metabolism body_age body_score"),
       ...cols("num", "weight bmi body_fat_percentage subcutaneous_fat cardiac_index body_water skeletal_muscle_rate muscle_mass bone_mass protein body_fat_mass water_content skeletal_muscle muscle_rate protein_mass obesity_degree lean_body_mass smi recommended_target_weight weight_control fat_control muscle_control left_arm_segmental_fat_analysis right_arm_segmental_fat_analysis trunk_segmental_fat_analysis left_leg_segmental_fat_analysis right_leg_segmental_fat_analysis left_arm_muscle_balance right_arm_muscle_balance trunk_muscle_balance left_leg_muscle_balance right_leg_muscle_balance right_arm_bioelectrical_impedance left_arm_bioelectrical_impedance trunk_bioelectrical_impedance right_leg_bioelectrical_impedance left_leg_bioelectrical_impedance") } },

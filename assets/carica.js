@@ -67,17 +67,33 @@ sb.auth.getSession().then(({ data }) => setUser(data.session?.user || null));
 sb.auth.onAuthStateChange((_, s) => { if ((s?.user?.id || null) !== (user?.id || null)) setUser(s?.user || null); });
 
 /* ---- import CSV con sostituzione completa ---- */
-async function replaceAll(t, recs, st){ // inserisce il nuovo, poi elimina il vecchio: se l'inserimento fallisce non si perde nulla
-  const { data: mx, error: e0 } = await sb.from(t).select("id").order("id", { ascending: false }).limit(1); if (e0) throw e0;
-  const oldMax = mx?.[0]?.id ?? 0;
+const chunks = (a, n = 500) => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n));
+const download = (t, data) => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: "application/json" })); a.download = `backup-${t}-${new Date().toISOString().slice(0, 10)}.json`; a.click(); };
+async function backupAll(t, st){
+  let out = [], from = 0;
+  for (;;) {
+    const { data, error } = await sb.from(t).select("*").order("id").range(from, from + 999); if (error) throw error;
+    out = out.concat(data); st(`1/4 Backup dei dati attuali: ${out.length} righe`, 0); if (data.length < 1000) break; from += 1000;
+  }
+  return out;
+}
+// Sostituzione completa: backup in memoria -> rimozione -> inserimento. Se l'inserimento fallisce, ripristina il backup.
+async function replaceAll(t, recs, st){
+  const old = await backupAll(t, st), oldMax = old.reduce((m, r) => Math.max(m, r.id), 0);
+  st("2/4 Rimozione dei dati attuali…", 0);
+  if (old.length) { const { error } = await sb.from(t).delete().lte("id", oldMax); if (error) throw Object.assign(error, { note: "La rimozione non è riuscita: i dati attuali sono ancora al loro posto." }); }
   try {
-    for (let i = 0; i < recs.length; i += 500) {
-      const { error } = await sb.from(t).insert(recs.slice(i, i + 500)); if (error) throw error;
-      st(`1/3 Inserimento nuovi dati: ${Math.min(i + 500, recs.length)} di ${recs.length}`, Math.min(i + 500, recs.length) / recs.length);
-    }
-  } catch (e) { await sb.from(t).delete().gt("id", oldMax); throw e; }
-  st("2/3 Rimozione dei dati precedenti…", 1);
-  const { error } = await sb.from(t).delete().lte("id", oldMax); if (error) throw error;
+    let n = 0;
+    for (const c of chunks(recs)) { const { error } = await sb.from(t).insert(c); if (error) throw error; n += c.length; st(`3/4 Inserimento nuovi dati: ${n} di ${recs.length}`, n / recs.length); }
+  } catch (e) {
+    st("Errore: ripristino dei dati precedenti…", 0);
+    try {
+      const d = await sb.from(t).delete().gt("id", oldMax); if (d.error) throw d.error;
+      for (const c of chunks(old.map(({ id, ...r }) => r))) { const { error } = await sb.from(t).insert(c); if (error) throw error; }
+      e.note = "I dati precedenti sono stati ripristinati.";
+    } catch (e2) { download(t, old); e.note = "Anche il ripristino è fallito (" + (e2.message || e2) + "). Ho scaricato un file di backup con i dati precedenti. Il CSV scelto contiene comunque i dati completi: riprova con lo stesso file."; }
+    throw e;
+  }
 }
 function importer(t){
   const T = C.TABLES[t], saved = JSON.parse(localStorage.getItem("map:" + t) || "{}");
@@ -96,28 +112,29 @@ function importer(t){
     ref();
   };
   go.onclick = async () => {
-    const idx = head.map((h, i) => [i, map[h]]).filter(x => x[1]); let skip = 0; const recs = [];
+    const idx = head.map((h, i) => [i, map[h]]).filter(x => x[1]); let skip = 0, dup = 0; let recs = [];
     for (const r of rows) { const o = Object.fromEntries(idx.map(([i, c]) => [c, cast(r[i], T.cols[c])])); if (o[T.req] == null) skip++; else recs.push(o); }
+    if (T.uniq) { const m = new Map(); recs.forEach(r => m.set(T.uniq.map(k => r[k]).join("|"), r)); dup = recs.length - m.size; recs = [...m.values()]; }
     if (!recs.length) { res.className = "res err"; res.textContent = `✖ Nessuna riga valida: il campo "${T.req}" non è interpretabile.`; return; }
     const { count, error: e0 } = await sb.from(t).select("*", { count: "exact", head: true });
     if (e0) { res.className = "res err"; res.textContent = "✖ Impossibile leggere la tabella: " + e0.message + hint(e0); return; }
-    if (!confirm(`Sostituire TUTTI i dati di "${T.label}"?\n\nRighe attuali: ${count ?? "?"}\nRighe nuove: ${recs.length}${skip ? ` (${skip} scartate: data non valida)` : ""}\n\nL'operazione non è annullabile.`)) return;
+    if (!confirm(`Sostituire TUTTI i dati di "${T.label}"?\n\nRighe attuali: ${count ?? "?"}\nRighe nuove: ${recs.length}${skip ? ` (${skip} scartate: data non valida)` : ""}${dup ? ` (${dup} duplicate unite)` : ""}\n\nL'operazione non è annullabile.`)) return;
     go.disabled = true; file.disabled = true; st.className = "st msg"; res.className = "res"; res.textContent = ""; pb.hidden = false; pb.value = 0;
     const t0 = Date.now();
     try {
       await replaceAll(t, recs, (m, f) => { st.textContent = m; if (f != null) pb.value = f; });
-      st.textContent = "3/3 Verifica dei dati salvati…";
+      st.textContent = "4/4 Verifica dei dati salvati…";
       const { count: n, error: ec } = await sb.from(t).select("*", { count: "exact", head: true }); if (ec) throw ec;
       const { data: lt } = await sb.from(t).select(T.req).order(T.req, { ascending: false }).limit(1);
       const ult = lt?.[0]?.[T.req] ? new Date(lt[0][T.req]).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" }) : "n/d";
       localStorage.setItem("map:" + t, JSON.stringify(map));
       const ok = n === recs.length;
       res.className = "res " + (ok ? "ok" : "warn");
-      res.innerHTML = `<b>${ok ? "✔ Caricamento completato" : "⚠ Caricamento terminato, ma i conteggi non coincidono"}</b><br>Righe nel database: <b>${n}</b> (attese ${recs.length})${skip ? ` · scartate dal file: ${skip}` : ""}<br>Dato più recente: <b>${esc(ult)}</b> · completato alle ${new Date().toLocaleTimeString("it-IT")} in ${Math.round((Date.now() - t0) / 1000)} s<br><span class="msg">Ricarica le altre pagine per vedere i nuovi dati nei grafici.</span>`;
+      res.innerHTML = `<b>${ok ? "✔ Caricamento completato" : "⚠ Caricamento terminato, ma i conteggi non coincidono"}</b><br>Righe nel database: <b>${n}</b> (attese ${recs.length})${skip ? ` · scartate dal file: ${skip}` : ""}${dup ? ` · duplicate unite: ${dup}` : ""}<br>Dato più recente: <b>${esc(ult)}</b> · completato alle ${new Date().toLocaleTimeString("it-IT")} in ${Math.round((Date.now() - t0) / 1000)} s<br><span class="msg">Ricarica le altre pagine per vedere i nuovi dati nei grafici.</span>`;
       st.textContent = ""; rows = []; mp.innerHTML = ""; file.value = "";
     } catch (e) {
       res.className = "res err";
-      res.innerHTML = `<b>✖ Caricamento non riuscito</b><br>${esc(e.message || e)}${esc(hint(e))}<br><span class="msg">I dati precedenti non sono stati toccati, salvo l'eventuale passaggio di rimozione già avvenuto.</span>`;
+      res.innerHTML = `<b>✖ Caricamento non riuscito</b><br>${esc(e.message || e)}${esc(hint(e))}<br><span class="msg">${esc(e.note || "")}</span>`;
       st.textContent = "";
     }
     pb.hidden = true; file.disabled = false;

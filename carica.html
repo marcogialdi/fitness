@@ -4,18 +4,4 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="assets/config.js"></script><script src="assets/sources.js"></script><script src="assets/app.js"></script></head>
-<body><script>
-const w=Page.shell({title:'Carica Dati',sub:'Importa un file CSV (prima riga = nomi colonna, separatore virgola) in una tabella Supabase.'});
-const C=Page.C, tables=[...new Set(Object.values(C.SOURCES).map(s=>s.table))];
-const card=document.createElement('div');card.className='card';
-card.innerHTML='<p><label>Tabella di destinazione: <select id=t>'+tables.map(t=>'<option>'+t+'</option>').join('')+'</select></label></p><p><input type=file id=f accept=.csv></p><div id=pv class=msg>Nessun file selezionato.</div><p><button class="pill on" id=go disabled>Carica su Supabase</button> <span id=st class=msg></span></p>';
-w.append(card);
-let rows=[];
-const parse=t=>{const L=t.trim().split(/\r?\n/).map(l=>l.split(',').map(x=>x.trim()));const h=L.shift();return L.map(r=>Object.fromEntries(h.map((k,i)=>[k,r[i]===''?null:r[i]])));};
-f.onchange=async()=>{rows=parse(await f.files[0].text());const h=Object.keys(rows[0]||{});
-pv.innerHTML=rows.length+' righe. Anteprima:<table><tr>'+h.map(k=>'<th>'+k+'</th>').join('')+'</tr>'+rows.slice(0,8).map(r=>'<tr>'+h.map(k=>'<td>'+(r[k]??'')+'</td>').join('')+'</tr>').join('')+'</table>';
-go.disabled=!C.SUPABASE_URL||!rows.length;st.textContent=C.SUPABASE_URL?'':'Configura Supabase in assets/config.js per abilitare il caricamento.';};
-go.onclick=async()=>{const sb=window.supabase.createClient(C.SUPABASE_URL,C.SUPABASE_ANON_KEY);go.disabled=true;
-for(let i=0;i<rows.length;i+=500){const {error}=await sb.from(t.value).upsert(rows.slice(i,i+500));if(error){st.textContent='Errore: '+error.message;go.disabled=false;return;}}
-st.textContent='Caricate '+rows.length+' righe.';};
-</script></body></html>
+<body><script src="assets/carica.js"></script></body></html>

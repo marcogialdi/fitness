@@ -38,7 +38,7 @@ Object.assign(window.CONFIG, {
     cal_att:   { table: "ringconn_weekly_reports", date: "week_end", col: "calories_avg" },
     stress:    { table: "ringconn_weekly_reports", date: "week_end", col: "stress_score" }
   },
-  TARGET: { altezza_m: 1.80, sessioni: 3 },
+  TARGET: { altezza_m: 1.73, sessioni: 3 },
   GROUPS: [
     { label: "BIA", source: "peso", color: "#38bdf8" },
     { label: "Workouts", source: "volume", color: "#facc15" },

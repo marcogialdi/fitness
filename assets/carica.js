@@ -73,21 +73,22 @@ async function replaceAll(t, recs, st){ // inserisce il nuovo, poi elimina il ve
   try {
     for (let i = 0; i < recs.length; i += 500) {
       const { error } = await sb.from(t).insert(recs.slice(i, i + 500)); if (error) throw error;
-      st(`Inserite ${Math.min(i + 500, recs.length)}/${recs.length}…`);
+      st(`1/3 Inserimento nuovi dati: ${Math.min(i + 500, recs.length)} di ${recs.length}`, Math.min(i + 500, recs.length) / recs.length);
     }
   } catch (e) { await sb.from(t).delete().gt("id", oldMax); throw e; }
-  st("Elimino i dati precedenti…");
+  st("2/3 Rimozione dei dati precedenti…", 1);
   const { error } = await sb.from(t).delete().lte("id", oldMax); if (error) throw error;
 }
 function importer(t){
   const T = C.TABLES[t], saved = JSON.parse(localStorage.getItem("map:" + t) || "{}");
-  const el = card(`<h3>${T.label} <small class="msg">· tabella ${t}</small></h3><p class="msg">Ogni caricamento <b>sostituisce tutti i dati</b> della tabella con il contenuto del CSV.</p><input type="file" accept=".csv,text/csv"><div class="map"></div><p><button class="pill on" disabled>Sostituisci tutti i dati</button> <span class="st msg"></span></p>`);
-  const file = el.querySelector("input"), mp = el.querySelector(".map"), go = el.querySelector("button"), st = el.querySelector(".st");
+  const el = card(`<h3>${T.label} <small class="msg">· tabella ${t}</small></h3><p class="msg">Ogni caricamento <b>sostituisce tutti i dati</b> della tabella con il contenuto del CSV.</p><input type="file" accept=".csv,text/csv"><div class="map"></div><p><button class="pill on" disabled>Sostituisci tutti i dati</button> <span class="st msg"></span></p><progress max="1" value="0" hidden></progress><div class="res" role="status" aria-live="polite"></div>`);
+  const pb = el.querySelector("progress"), res = el.querySelector(".res"), file = el.querySelector("input"), mp = el.querySelector(".map"), go = el.querySelector("button"), st = el.querySelector(".st");
   let head = [], rows = [], map = {};
   const missing = () => !Object.values(map).includes(T.req);
   const ref = () => { go.disabled = !(user && rows.length && !missing()); if (rows.length && missing()) st.textContent = `Associa una colonna a "${T.req}" (obbligatoria).`; else if (rows.length && !user) st.textContent = "Accedi per poter caricare."; else if (!go.disabled) st.textContent = ""; };
   hooks.push(ref);
   file.onchange = async () => {
+    res.className = "res"; res.textContent = "";
     const all = parseCSV(await file.files[0].text()); head = all.shift() || []; rows = all; map = {};
     head.forEach(h => { map[h] = saved[h] in T.cols ? saved[h] : (Object.keys(T.cols).find(c => c === norm(h)) || (norm(h) === "time" ? T.req : "")); });
     mp.innerHTML = `<p>${rows.length} righe, ${head.length} colonne. Associazione colonne CSV → database:</p><table><tr><th>Colonna CSV</th><th>Esempio</th><th>Colonna database</th></tr>${head.map((h, i) => `<tr><td>${esc(h)}</td><td class="msg">${esc((rows[0]?.[i] || "").slice(0, 40))}</td><td><select data-h="${esc(h)}"><option value="">— ignora —</option>${Object.keys(T.cols).map(c => `<option ${map[h] === c ? "selected" : ""}>${c}</option>`).join("")}</select></td></tr>`).join("")}</table>`;
@@ -97,13 +98,29 @@ function importer(t){
   go.onclick = async () => {
     const idx = head.map((h, i) => [i, map[h]]).filter(x => x[1]); let skip = 0; const recs = [];
     for (const r of rows) { const o = Object.fromEntries(idx.map(([i, c]) => [c, cast(r[i], T.cols[c])])); if (o[T.req] == null) skip++; else recs.push(o); }
-    if (!recs.length) { st.textContent = `Nessuna riga valida (campo "${T.req}" non interpretabile).`; return; }
-    const { count } = await sb.from(t).select("*", { count: "exact", head: true });
+    if (!recs.length) { res.className = "res err"; res.textContent = `✖ Nessuna riga valida: il campo "${T.req}" non è interpretabile.`; return; }
+    const { count, error: e0 } = await sb.from(t).select("*", { count: "exact", head: true });
+    if (e0) { res.className = "res err"; res.textContent = "✖ Impossibile leggere la tabella: " + e0.message + hint(e0); return; }
     if (!confirm(`Sostituire TUTTI i dati di "${T.label}"?\n\nRighe attuali: ${count ?? "?"}\nRighe nuove: ${recs.length}${skip ? ` (${skip} scartate: data non valida)` : ""}\n\nL'operazione non è annullabile.`)) return;
-    go.disabled = true; st.className = "st msg";
-    try { await replaceAll(t, recs, m => st.textContent = m); localStorage.setItem("map:" + t, JSON.stringify(map));
-      st.textContent = `Fatto: ${recs.length} righe caricate.`; st.className = "st ok"; rows = []; mp.innerHTML = ""; file.value = ""; }
-    catch (e) { st.textContent = "Errore: " + (e.message || e) + hint(e); st.className = "st err"; }
+    go.disabled = true; file.disabled = true; st.className = "st msg"; res.className = "res"; res.textContent = ""; pb.hidden = false; pb.value = 0;
+    const t0 = Date.now();
+    try {
+      await replaceAll(t, recs, (m, f) => { st.textContent = m; if (f != null) pb.value = f; });
+      st.textContent = "3/3 Verifica dei dati salvati…";
+      const { count: n, error: ec } = await sb.from(t).select("*", { count: "exact", head: true }); if (ec) throw ec;
+      const { data: lt } = await sb.from(t).select(T.req).order(T.req, { ascending: false }).limit(1);
+      const ult = lt?.[0]?.[T.req] ? new Date(lt[0][T.req]).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" }) : "n/d";
+      localStorage.setItem("map:" + t, JSON.stringify(map));
+      const ok = n === recs.length;
+      res.className = "res " + (ok ? "ok" : "warn");
+      res.innerHTML = `<b>${ok ? "✔ Caricamento completato" : "⚠ Caricamento terminato, ma i conteggi non coincidono"}</b><br>Righe nel database: <b>${n}</b> (attese ${recs.length})${skip ? ` · scartate dal file: ${skip}` : ""}<br>Dato più recente: <b>${esc(ult)}</b> · completato alle ${new Date().toLocaleTimeString("it-IT")} in ${Math.round((Date.now() - t0) / 1000)} s<br><span class="msg">Ricarica le altre pagine per vedere i nuovi dati nei grafici.</span>`;
+      st.textContent = ""; rows = []; mp.innerHTML = ""; file.value = "";
+    } catch (e) {
+      res.className = "res err";
+      res.innerHTML = `<b>✖ Caricamento non riuscito</b><br>${esc(e.message || e)}${esc(hint(e))}<br><span class="msg">I dati precedenti non sono stati toccati, salvo l'eventuale passaggio di rimozione già avvenuto.</span>`;
+      st.textContent = "";
+    }
+    pb.hidden = true; file.disabled = false;
     ref();
   };
 }
@@ -144,7 +161,7 @@ sv.onclick = async () => {
     if (ex) { if (!confirm("Esiste già un report per questa settimana. Sovrascriverlo?")) return; id = ex.id; } }
   const { error } = id ? await sb.from(RT).update(rec).eq("id", id) : await sb.from(RT).insert(rec);
   if (error) { rs.textContent = "Errore: " + error.message + hint(error); rs.className = "msg err"; return; }
-  rs.textContent = id ? "Report aggiornato." : "Report salvato."; rs.className = "msg ok"; clear(); rs.textContent = "Salvato."; list();
+  const wk = `${rec.week_start} → ${rec.week_end}`; clear(); rs.className = "msg ok"; rs.textContent = `✔ Report ${id ? "aggiornato" : "salvato"} (${wk}) alle ${new Date().toLocaleTimeString("it-IT")}`; list();
 };
 list(); setUser(user);
 })();

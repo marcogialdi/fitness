@@ -8,21 +8,21 @@
 Page.init({
   title:"Wellness", sub:"Sonno, attività e stress (report settimanali RingConn).",
   kpis:[
-    {"title": "Sleep score", "source": "sonno", "color": "#ec4899", "dec": 0},
-    {"title": "Ore di sonno", "source": "ore_sonno", "color": "#38bdf8", "unit": "h"},
-    {"title": "FC media nel sonno", "source": "fc_sonno", "color": "#fb923c", "unit": "bpm", "dec": 0},
-    {"title": "Activity score", "source": "attivita", "color": "#4ade80", "dec": 0},
-    {"title": "Passi medi", "source": "passi", "color": "#2dd4bf", "dec": 0},
-    {"title": "Calorie attive medie", "source": "cal_att", "color": "#facc15", "unit": "kcal", "dec": 0},
-    {"title": "Stress score", "source": "stress", "color": "#fb923c", "dec": 0}],
+    {"title": "Sleep score", "color": "#ec4899", "dec": 0, "source": "sonno"},
+    {"title": "Ore di sonno", "color": "#38bdf8", "unit": "h", "source": "ore_sonno"},
+    {"title": "FC media nel sonno", "color": "#fb923c", "unit": "bpm", "dec": 0, "source": "fc_sonno"},
+    {"title": "Activity score", "color": "#4ade80", "dec": 0, "source": "attivita"},
+    {"title": "Passi medi", "color": "#2dd4bf", "dec": 0, "source": "passi"},
+    {"title": "Stress score", "color": "#fb923c", "dec": 0, "source": "stress"}],
   charts:[
     {"type": "line", "title": "Sleep score", "label": "Sleep score", "source": "sonno", "color": "#ec4899"},
     {"type": "line", "title": "Ore di sonno", "label": "Ore", "source": "ore_sonno", "color": "#38bdf8"},
     {"type": "line", "title": "FC media nel sonno", "label": "bpm", "source": "fc_sonno", "color": "#fb923c"},
+    {"type": "line", "title": "Stress score", "label": "Stress", "source": "stress", "color": "#fb923c"},
+    {"section": "Dettagli wellness", "note": "attività, passi, calorie attive e correlazioni", "collapsed": true},
     {"type": "line", "title": "Activity score", "label": "Activity", "source": "attivita", "color": "#4ade80"},
     {"type": "bar", "title": "Passi medi", "label": "Passi", "source": "passi", "agg": "avg", "color": "#2dd4bf"},
     {"type": "bar", "title": "Calorie attive medie", "label": "kcal", "source": "cal_att", "agg": "avg", "color": "#facc15"},
-    {"type": "line", "title": "Stress score", "label": "Stress", "source": "stress", "color": "#fb923c"},
     {"type": "scatter", "title": "Correlazione: sleep score vs volume allenamento (settimanale)", "label": "Settimane", "x": "sonno", "y": "volume", "yagg": "sum", "gran": "week", "color": "#ec4899", "xl": "Sleep score medio", "yl": "Volume settimana (kg)"},
     {"type": "scatter", "title": "Correlazione: stress vs sleep score (settimanale)", "label": "Settimane", "x": "stress", "y": "sonno", "gran": "week", "color": "#fb923c", "xl": "Stress score", "yl": "Sleep score"}]
 });

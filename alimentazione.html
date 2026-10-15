@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="assets/style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="assets/config.js"></script><script src="assets/sources.js"></script><script src="assets/help.js"></script><script src="assets/app.js"></script></head>
+<body><script>
+Page.init({
+  title:"Alimentazione", sub:"Calorie e macronutrienti dal diario Cronometer, in relazione alla fase in corso. Il giorno in corso non è incluso.",
+  kpis:[
+    {"title": "Fase attiva", "color": "#4ade80", "calc": "fase"},
+    {"title": "Calorie", "color": "#facc15", "calc": "cal7", "unit": "kcal", "dec": 0},
+    {"title": "Proteine", "color": "#ec4899", "calc": "prot7", "unit": "g", "dec": 0},
+    {"title": "Ritmo del peso", "color": "#38bdf8", "calc": "ritmo"},
+    {"title": "TDEE stimato", "color": "#facc15", "calc": "tdee", "unit": "kcal", "dec": 0},
+    {"title": "Aderenza al target", "color": "#4ade80", "calc": "aderenza", "unit": "%", "dec": 0}],
+  charts:[
+    {"type": "bar", "title": "Calorie giornaliere", "label": "kcal", "source": "kcal", "agg": "avg", "color": "#facc15", "wide": true, "target": "target_kcal"},
+    {"type": "bar", "title": "Proteine", "label": "Proteine (g)", "source": "proteine", "agg": "avg", "color": "#ec4899", "target": "target_protein_g"},
+    {"type": "line", "title": "Peso (BIA)", "label": "Peso (kg)", "source": "peso", "color": "#38bdf8"},
+    {"type": "scatter", "title": "Correlazione: calorie vs variazione di peso (settimanale)", "label": "Settimane", "x": "kcal", "y": "peso", "dy": true, "gran": "week", "color": "#facc15", "xl": "kcal medie al giorno nella settimana", "yl": "Δ peso vs settimana prec. (kg)"},
+    {"section": "Dettagli nutrienti", "note": "ripartizione dei macro, carboidrati, grassi, fibre, sodio", "collapsed": true, "kpis": [{"title": "Ripartizione dei macro", "color": "#ec4899", "calc": "macro3"}]},
+    {"type": "bar", "title": "Carboidrati", "label": "Carboidrati (g)", "source": "carbo", "agg": "avg", "color": "#facc15"},
+    {"type": "bar", "title": "Grassi", "label": "Grassi (g)", "source": "grassi_g", "agg": "avg", "color": "#fb923c"},
+    {"type": "bar", "title": "Fibre", "label": "Fibre (g)", "source": "fibre", "agg": "avg", "color": "#4ade80"},
+    {"type": "bar", "title": "Sodio", "label": "Sodio (mg)", "source": "sodio", "agg": "avg", "color": "#38bdf8"}]
+});
+</script></body></html>

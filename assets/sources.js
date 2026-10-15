@@ -23,11 +23,7 @@ Object.assign(window.CONFIG, {
     durata:   { kind: "workouts", metric: "durata" },   // end_time - start_time, in minuti
     sessioni: { kind: "workouts", metric: "sessioni" },
     serie:    { kind: "workouts", metric: "serie" },
-    // 1RM stimato (Epley) = migliore serie della sessione. ADATTA le regex ai titoli reali degli esercizi.
-    e1rm_panca:    { kind: "workouts", match: /^bench press|panca piana/i },
-    e1rm_squat:    { kind: "workouts", match: /^squat/i },
-    e1rm_stacco:   { kind: "workouts", match: /^deadlift|^stacco/i },
-    e1rm_military: { kind: "workouts", match: /^overhead press|^military press|lento avanti/i },
+    // I sorgenti e1rm_<chiave> (1RM stimato, Epley) sono generati all'avvio dagli esercizi chiave (LIFTS o pagina Setup)
 
     // RingConn: report SETTIMANALI (si usa week_end per allinearsi alle settimane degli allenamenti)
     sonno:     { table: "ringconn_weekly_reports", date: "week_end", col: "sleep_score" },
@@ -48,7 +44,15 @@ Object.assign(window.CONFIG, {
   },
   // true = nei grafici e nei KPI di alimentazione contano solo i giorni segnati "Completato" in Cronometer
   SOLO_COMPLETATI: false,
-  TARGET: { altezza_m: 1.80, sessioni: 3, kcal: 2500 },
+  // Valori predefiniti: la pagina Setup (profilo, fasi, allenamento) li sostituisce. kcal: null = nessun target finché non c'è una fase con target.
+  TARGET: { altezza_m: 1.80, sessioni: 3, kcal: null },
+  // Esercizi chiave per il 1RM stimato. pattern = espressione regolare (maiuscole/minuscole ignorate) sul titolo dell'esercizio.
+  LIFTS: [
+    { key: "panca",    label: "Panca piana", pattern: "^bench press|panca piana" },
+    { key: "squat",    label: "Squat",       pattern: "^squat" },
+    { key: "stacco",   label: "Stacco",      pattern: "^deadlift|^stacco" },
+    { key: "military", label: "Military press", pattern: "^overhead press|^military press|lento avanti" }
+  ],
   GROUPS: [
     { label: "BIA", source: "peso", color: "#38bdf8" },
     { label: "Workouts", source: "volume", color: "#facc15" },

@@ -63,3 +63,4 @@ button.mini{background:none;border:none;color:var(--txt);cursor:pointer;font-siz
 .res.err{border-color:var(--orange);background:#fb923c14}
 progress{width:100%;height:10px;margin-top:10px;accent-color:var(--blue)}
 .msg.ok{color:var(--green)}.msg.err{color:var(--orange)}
+details{margin:8px 0}summary{cursor:pointer;color:var(--mut)}

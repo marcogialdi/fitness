@@ -1,7 +1,8 @@
-// Carica Dati: import CSV (sostituzione completa) per BIA e Allenamenti + inserimento manuale report RingConn.
+// Carica Dati: import CSV per BIA, Allenamenti e Alimentazione (Cronometer) + inserimento manuale report RingConn.
 (() => {
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const norm = s => String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+const norm = s => String(s).toLowerCase().replace(/µ|μ/g, "u").trim().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 const EN = "jan feb mar apr may jun jul aug sep oct nov dec".split(" "), IT = "gen feb mar apr mag giu lug ago set ott nov dic".split(" ");
 
 function parseCSV(t){ // gestisce virgolette, a capo nei campi, separatore , o ;
@@ -35,13 +36,74 @@ function pdate(v){ // ISO, "14 Oct 2026, 18:30" (anche in italiano), "14/10/2026
 function cast(v, ty){
   if (v == null) return null; v = String(v).trim(); if (v === "") return null;
   if (ty === "text") return v; if (ty === "ts") return pdate(v);
+  if (ty === "date") { let m = v.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return m[0];
+    m = v.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})/); return m ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : null; }
+  if (ty === "bool") return /^(true|vero|si|sì|yes|1)$/i.test(v) ? true : /^(false|falso|no|0)$/i.test(v) ? false : null;
   let n = +(v.includes(",") && !v.includes(".") ? v.replace(",", ".") : v.replace(/,/g, ""));
   if (isNaN(n)) { const m = v.match(/-?\d+(?:[.,]\d+)?/); n = m ? +m[0].replace(",", ".") : NaN; }
   return isNaN(n) ? null : ty === "int" ? Math.round(n) : n;
 }
-if (typeof Page === "undefined") { module.exports = { parseCSV, pdate, cast }; return; }
 
-const C = Page.C, w = Page.shell({ title: "Carica Dati", sub: "Importa i CSV di BIA e Allenamenti (sostituzione completa della tabella) e inserisci a mano i report settimanali RingConn." });
+// Associazione automatica colonne CSV -> colonne del database (alias, nome normalizzato, mappa salvata)
+function autoMap(T, head, saved = {}){
+  const map = {};
+  head.forEach(h => { const n = norm(h);
+    map[h] = has(T.cols, saved[h]) ? saved[h] : (T.alias?.[n] || (has(T.cols, n) ? n : "") || (n === "time" ? T.req : "")); });
+  return map;
+}
+// Righe del CSV -> record da inserire (scarta le righe senza chiave valida, unisce i duplicati sulla chiave univoca)
+function buildRecs(T, head, rows, map){
+  const idx = head.map((h, i) => [i, map[h]]).filter(x => x[1]); let skip = 0, dup = 0, recs = [];
+  for (const r of rows) { const o = Object.fromEntries(idx.map(([i, c]) => [c, cast(r[i], T.cols[c])])); if (o[T.req] == null) skip++; else recs.push(o); }
+  if (T.uniq) { const m = new Map(); recs.forEach(r => m.set(T.uniq.map(k => r[k]).join("|"), r)); dup = recs.length - m.size; recs = [...m.values()]; }
+  return { recs, skip, dup };
+}
+// Giorni senza la riga di totale (non comparirebbero nei grafici)
+function needsWarn(T, recs){
+  if (!T.needs) return 0; const n = T.needs;
+  const have = new Set(recs.filter(r => r[n.col] === n.val).map(r => r[n.by])), all = new Set(recs.map(r => r[n.by]));
+  return [...all].filter(d => !have.has(d)).length;
+}
+const scopeOf = (T, recs) => { const k = T.merge.col, v = recs.map(r => r[k]).sort(); return { col: k, from: v[0], to: v[v.length - 1] }; };
+
+// Sostituzione con backup in memoria: rimozione -> inserimento; se l'inserimento fallisce ripristina il backup.
+// scope = {col, from, to} limita backup e rimozione a un intervallo (aggiornamento per periodo); null = tutta la tabella.
+function makeReplace(sb){
+  const chunks = (a, n = 500) => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n));
+  const rng = (q, sc) => sc ? q.gte(sc.col, sc.from).lte(sc.col, sc.to) : q;
+  const download = (t, data) => { if (typeof document === "undefined") return; const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: "application/json" })); a.download = `backup-${t}-${new Date().toISOString().slice(0, 10)}.json`; a.click(); };
+  async function backupAll(t, st, sc){
+    let out = [], from = 0;
+    for (;;) {
+      const { data, error } = await rng(sb.from(t).select("*"), sc).order("id").range(from, from + 999); if (error) throw error;
+      out = out.concat(data); st(`1/4 Backup dei dati attuali: ${out.length} righe`, 0); if (data.length < 1000) break; from += 1000;
+    }
+    return out;
+  }
+  async function replaceAll(t, recs, st, sc = null){
+    const { data: mx, error: e0 } = await sb.from(t).select("id").order("id", { ascending: false }).limit(1); if (e0) throw e0;
+    const maxId = mx?.[0]?.id ?? 0;            // le righe inserite da qui in poi hanno id > maxId
+    const old = await backupAll(t, st, sc);
+    st("2/4 Rimozione dei dati attuali…", 0);
+    if (old.length) { const { error } = await rng(sb.from(t).delete().lte("id", maxId), sc); if (error) throw Object.assign(error, { note: "La rimozione non è riuscita: i dati attuali sono ancora al loro posto." }); }
+    try {
+      let n = 0;
+      for (const c of chunks(recs)) { const { error } = await sb.from(t).insert(c); if (error) throw error; n += c.length; st(`3/4 Inserimento nuovi dati: ${n} di ${recs.length}`, n / recs.length); }
+    } catch (e) {
+      st("Errore: ripristino dei dati precedenti…", 0);
+      try {
+        const d = await sb.from(t).delete().gt("id", maxId); if (d.error) throw d.error;
+        for (const c of chunks(old.map(({ id, ...r }) => r))) { const { error } = await sb.from(t).insert(c); if (error) throw error; }
+        e.note = "I dati precedenti sono stati ripristinati.";
+      } catch (e2) { download(t, old); e.note = "Anche il ripristino è fallito (" + (e2.message || e2) + "). Ho scaricato un file di backup con i dati precedenti. Il CSV scelto contiene comunque i dati completi: riprova con lo stesso file."; }
+      throw e;
+    }
+  }
+  return { replaceAll };
+}
+if (typeof Page === "undefined") { module.exports = { parseCSV, pdate, cast, norm, autoMap, buildRecs, needsWarn, scopeOf, makeReplace }; return; }
+
+const C = Page.C, w = Page.shell({ title: "Carica Dati", sub: "Importa i CSV di BIA, Allenamenti e Alimentazione (Cronometer) e inserisci a mano i report settimanali RingConn." });
 const $ = h => { const t = document.createElement("template"); t.innerHTML = h.trim(); return t.content.firstChild; };
 if (!C.SUPABASE_URL) { w.append($(`<p class="msg">Configura SUPABASE_URL e SUPABASE_ANON_KEY in assets/config.js.</p>`)); return; }
 const sb = window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_ANON_KEY);
@@ -66,71 +128,54 @@ function setUser(u){
 sb.auth.getSession().then(({ data }) => setUser(data.session?.user || null));
 sb.auth.onAuthStateChange((_, s) => { if ((s?.user?.id || null) !== (user?.id || null)) setUser(s?.user || null); });
 
-/* ---- import CSV con sostituzione completa ---- */
-const chunks = (a, n = 500) => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n));
-const download = (t, data) => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: "application/json" })); a.download = `backup-${t}-${new Date().toISOString().slice(0, 10)}.json`; a.click(); };
-async function backupAll(t, st){
-  let out = [], from = 0;
-  for (;;) {
-    const { data, error } = await sb.from(t).select("*").order("id").range(from, from + 999); if (error) throw error;
-    out = out.concat(data); st(`1/4 Backup dei dati attuali: ${out.length} righe`, 0); if (data.length < 1000) break; from += 1000;
-  }
-  return out;
-}
-// Sostituzione completa: backup in memoria -> rimozione -> inserimento. Se l'inserimento fallisce, ripristina il backup.
-async function replaceAll(t, recs, st){
-  const old = await backupAll(t, st), oldMax = old.reduce((m, r) => Math.max(m, r.id), 0);
-  st("2/4 Rimozione dei dati attuali…", 0);
-  if (old.length) { const { error } = await sb.from(t).delete().lte("id", oldMax); if (error) throw Object.assign(error, { note: "La rimozione non è riuscita: i dati attuali sono ancora al loro posto." }); }
-  try {
-    let n = 0;
-    for (const c of chunks(recs)) { const { error } = await sb.from(t).insert(c); if (error) throw error; n += c.length; st(`3/4 Inserimento nuovi dati: ${n} di ${recs.length}`, n / recs.length); }
-  } catch (e) {
-    st("Errore: ripristino dei dati precedenti…", 0);
-    try {
-      const d = await sb.from(t).delete().gt("id", oldMax); if (d.error) throw d.error;
-      for (const c of chunks(old.map(({ id, ...r }) => r))) { const { error } = await sb.from(t).insert(c); if (error) throw error; }
-      e.note = "I dati precedenti sono stati ripristinati.";
-    } catch (e2) { download(t, old); e.note = "Anche il ripristino è fallito (" + (e2.message || e2) + "). Ho scaricato un file di backup con i dati precedenti. Il CSV scelto contiene comunque i dati completi: riprova con lo stesso file."; }
-    throw e;
-  }
-}
+/* ---- import CSV ---- */
+const { replaceAll } = makeReplace(sb);
 function importer(t){
   const T = C.TABLES[t], saved = JSON.parse(localStorage.getItem("map:" + t) || "{}");
-  const el = card(`<h3>${T.label} <small class="msg">· tabella ${t}</small></h3><p class="msg">Ogni caricamento <b>sostituisce tutti i dati</b> della tabella con il contenuto del CSV.</p><input type="file" accept=".csv,text/csv"><div class="map"></div><p><button class="pill on" disabled>Sostituisci tutti i dati</button> <span class="st msg"></span></p><progress max="1" value="0" hidden></progress><div class="res" role="status" aria-live="polite"></div>`);
-  const pb = el.querySelector("progress"), res = el.querySelector(".res"), file = el.querySelector("input"), mp = el.querySelector(".map"), go = el.querySelector("button"), st = el.querySelector(".st");
+  const intro = T.merge ? "Per ogni giorno presente nel CSV i dati vengono sostituiti; i giorni fuori dal periodo del file restano invariati." : "Ogni caricamento <b>sostituisce tutti i dati</b> della tabella con il contenuto del CSV.";
+  const modes = T.merge ? `<p><label><input type="radio" name="m-${t}" value="merge" checked> Aggiorna solo il periodo del file <small class="msg">(consigliato)</small></label><br><label><input type="radio" name="m-${t}" value="all"> Sostituisci tutta la tabella</label></p>` : "";
+  const el = card(`<h3>${T.label} <small class="msg">· tabella ${t}</small></h3><p class="msg">${intro}</p>${modes}<input type="file" accept=".csv,text/csv"><div class="map"></div><p><button class="pill on" disabled>Carica dati</button> <span class="st msg"></span></p><progress max="1" value="0" hidden></progress><div class="res" role="status" aria-live="polite"></div>`);
+  const pb = el.querySelector("progress"), res = el.querySelector(".res"), file = el.querySelector("input[type=file]"), mp = el.querySelector(".map"), go = el.querySelector("button"), st = el.querySelector(".st");
+  const mode = () => T.merge ? el.querySelector(`input[name="m-${t}"]:checked`).value : "all";
   let head = [], rows = [], map = {};
   const missing = () => !Object.values(map).includes(T.req);
   const ref = () => { go.disabled = !(user && rows.length && !missing()); if (rows.length && missing()) st.textContent = `Associa una colonna a "${T.req}" (obbligatoria).`; else if (rows.length && !user) st.textContent = "Accedi per poter caricare."; else if (!go.disabled) st.textContent = ""; };
   hooks.push(ref);
   file.onchange = async () => {
     res.className = "res"; res.textContent = "";
-    const all = parseCSV(await file.files[0].text()); head = all.shift() || []; rows = all; map = {};
-    head.forEach(h => { map[h] = saved[h] in T.cols ? saved[h] : (Object.keys(T.cols).find(c => c === norm(h)) || (norm(h) === "time" ? T.req : "")); });
-    mp.innerHTML = `<p>${rows.length} righe, ${head.length} colonne. Associazione colonne CSV → database:</p><table><tr><th>Colonna CSV</th><th>Esempio</th><th>Colonna database</th></tr>${head.map((h, i) => `<tr><td>${esc(h)}</td><td class="msg">${esc((rows[0]?.[i] || "").slice(0, 40))}</td><td><select data-h="${esc(h)}"><option value="">— ignora —</option>${Object.keys(T.cols).map(c => `<option ${map[h] === c ? "selected" : ""}>${c}</option>`).join("")}</select></td></tr>`).join("")}</table>`;
+    const all = parseCSV(await file.files[0].text()); head = all.shift() || []; rows = all;
+    map = autoMap(T, head, saved);
+    const un = head.filter(h => h && !map[h]).length;
+    mp.innerHTML = `<p>${rows.length} righe, ${head.length} colonne.</p><details ${un || missing() ? "open" : ""}><summary>${head.filter(h => map[h]).length} colonne associate, ${un} ignorate: clicca per vedere o modificare</summary><table><tr><th>Colonna CSV</th><th>Esempio</th><th>Colonna database</th></tr>${head.map((h, i) => `<tr><td>${esc(h)}</td><td class="msg">${esc((rows[0]?.[i] || "").slice(0, 40))}</td><td><select data-h="${esc(h)}"><option value="">— ignora —</option>${Object.keys(T.cols).map(c => `<option ${map[h] === c ? "selected" : ""}>${c}</option>`).join("")}</select></td></tr>`).join("")}</table></details>`;
     mp.querySelectorAll("select").forEach(s => s.onchange = () => { map[s.dataset.h] = s.value; ref(); });
     ref();
   };
   go.onclick = async () => {
-    const idx = head.map((h, i) => [i, map[h]]).filter(x => x[1]); let skip = 0, dup = 0; let recs = [];
-    for (const r of rows) { const o = Object.fromEntries(idx.map(([i, c]) => [c, cast(r[i], T.cols[c])])); if (o[T.req] == null) skip++; else recs.push(o); }
-    if (T.uniq) { const m = new Map(); recs.forEach(r => m.set(T.uniq.map(k => r[k]).join("|"), r)); dup = recs.length - m.size; recs = [...m.values()]; }
+    const { recs, skip, dup } = buildRecs(T, head, rows, map);
     if (!recs.length) { res.className = "res err"; res.textContent = `✖ Nessuna riga valida: il campo "${T.req}" non è interpretabile.`; return; }
-    const { count, error: e0 } = await sb.from(t).select("*", { count: "exact", head: true });
+    const sc = mode() === "merge" ? scopeOf(T, recs) : null;
+    const count = () => { let q = sb.from(t).select("*", { count: "exact", head: true }); if (sc) q = q.gte(sc.col, sc.from).lte(sc.col, sc.to); return q; };
+    const { count: before, error: e0 } = await count();
     if (e0) { res.className = "res err"; res.textContent = "✖ Impossibile leggere la tabella: " + e0.message + hint(e0); return; }
-    if (!confirm(`Sostituire TUTTI i dati di "${T.label}"?\n\nRighe attuali: ${count ?? "?"}\nRighe nuove: ${recs.length}${skip ? ` (${skip} scartate: data non valida)` : ""}${dup ? ` (${dup} duplicate unite)` : ""}\n\nL'operazione non è annullabile.`)) return;
+    const miss = needsWarn(T, recs);
+    const q = (sc ? `Aggiornare "${T.label}" dal ${sc.from} al ${sc.to}?\n\nRighe attuali nel periodo: ${before ?? "?"}` : `Sostituire TUTTI i dati di "${T.label}"?\n\nRighe attuali: ${before ?? "?"}`)
+      + `\nRighe nuove: ${recs.length}${skip ? ` (${skip} scartate: chiave non valida)` : ""}${dup ? ` (${dup} duplicate unite)` : ""}`
+      + (miss ? `\n\n⚠ ${miss} giorni non hanno la riga "${T.needs.val}" e non compariranno nei grafici.` : "")
+      + `\n\n${sc ? "Le righe del periodo verranno sostituite, il resto non viene toccato.\n" : ""}L'operazione non è annullabile.`;
+    if (!confirm(q)) return;
     go.disabled = true; file.disabled = true; st.className = "st msg"; res.className = "res"; res.textContent = ""; pb.hidden = false; pb.value = 0;
     const t0 = Date.now();
     try {
-      await replaceAll(t, recs, (m, f) => { st.textContent = m; if (f != null) pb.value = f; });
+      await replaceAll(t, recs, (m, f) => { st.textContent = m; if (f != null) pb.value = f; }, sc);
       st.textContent = "4/4 Verifica dei dati salvati…";
-      const { count: n, error: ec } = await sb.from(t).select("*", { count: "exact", head: true }); if (ec) throw ec;
+      const { count: n, error: ec } = await count(); if (ec) throw ec;
       const { data: lt } = await sb.from(t).select(T.req).order(T.req, { ascending: false }).limit(1);
-      const ult = lt?.[0]?.[T.req] ? new Date(lt[0][T.req]).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" }) : "n/d";
+      const lv = lt?.[0]?.[T.req], isDate = T.cols[T.req] === "date";
+      const ult = lv ? (isDate ? new Date(lv + "T12:00:00").toLocaleDateString("it-IT") : new Date(lv).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })) : "n/d";
       localStorage.setItem("map:" + t, JSON.stringify(map));
       const ok = n === recs.length;
       res.className = "res " + (ok ? "ok" : "warn");
-      res.innerHTML = `<b>${ok ? "✔ Caricamento completato" : "⚠ Caricamento terminato, ma i conteggi non coincidono"}</b><br>Righe nel database: <b>${n}</b> (attese ${recs.length})${skip ? ` · scartate dal file: ${skip}` : ""}${dup ? ` · duplicate unite: ${dup}` : ""}<br>Dato più recente: <b>${esc(ult)}</b> · completato alle ${new Date().toLocaleTimeString("it-IT")} in ${Math.round((Date.now() - t0) / 1000)} s<br><span class="msg">Ricarica le altre pagine per vedere i nuovi dati nei grafici.</span>`;
+      res.innerHTML = `<b>${ok ? "✔ Caricamento completato" : "⚠ Caricamento terminato, ma i conteggi non coincidono"}</b><br>Righe ${sc ? `nel periodo ${esc(sc.from)} → ${esc(sc.to)}` : "nel database"}: <b>${n}</b> (attese ${recs.length})${skip ? ` · scartate dal file: ${skip}` : ""}${dup ? ` · duplicate unite: ${dup}` : ""}${miss ? ` · giorni senza "${esc(T.needs.val)}": ${miss}` : ""}<br>Dato più recente nella tabella: <b>${esc(ult)}</b> · completato alle ${new Date().toLocaleTimeString("it-IT")} in ${Math.round((Date.now() - t0) / 1000)} s<br><span class="msg">Ricarica le altre pagine per vedere i nuovi dati nei grafici.</span>`;
       st.textContent = ""; rows = []; mp.innerHTML = ""; file.value = "";
     } catch (e) {
       res.className = "res err";
@@ -141,7 +186,7 @@ function importer(t){
     ref();
   };
 }
-importer("bia_measurements"); importer("workouts");
+importer("bia_measurements"); importer("workouts"); importer("nutrition_daily");
 
 /* ---- RingConn: inserimento manuale ---- */
 const RT = "ringconn_weekly_reports", F = [

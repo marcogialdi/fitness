@@ -22,10 +22,11 @@ function demo(c){
 let sb; const client = () => sb ||= window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_ANON_KEY);
 const day = t => String(t).length > 10 ? new Date(t).toLocaleDateString("sv-SE") : String(t).slice(0, 10);
 const hm = s => { const n = String(s).match(/\d+(?:[.,]\d+)?/g)?.map(x => +x.replace(",", ".")); return !n ? NaN : n.length > 1 ? n[0] + n[1] / 60 : (n[0] > 24 ? n[0] / 60 : n[0]); };
-async function fetchAll(table, cols, order, notnull){ // paginazione con ordinamento stabile (order + id)
+async function fetchAll(table, cols, order, notnull, where){ // paginazione con ordinamento stabile (order + id)
   let out = [], from = 0;
   for (;;) {
     let q = client().from(table).select(cols); if (notnull) q = q.not(notnull, "is", null);
+    for (const [k, v] of Object.entries(where || {})) q = q.eq(k, v);
     const { data, error } = await q.order(order).order("id").range(from, from + 999);
     if (error) throw error; out = out.concat(data); if (data.length < 1000) break; from += 1000;
   }
@@ -53,8 +54,10 @@ function load(id){
       const f = s.match ? (x => { const v = x.x.filter(e => s.match.test(e[0])).map(e => e[1]); return v.length ? Math.max(...v) : null; }) : METRIC[s.metric];
       return (await sessions()).map(x => ({ d: x.d, v: f(x) })).filter(r => r.v != null && isFinite(r.v));
     }
-    const rows = await fetchAll(s.table, `${s.date},${s.col}`, s.date, s.col);
-    return rows.map(r => ({ d: day(r[s.date]), v: s.parse === "hm" ? hm(r[s.col]) : +r[s.col] })).filter(r => isFinite(r.v));
+    const rows = await fetchAll(s.table, `${s.date},${s.col}${s.daily ? ",completed" : ""}`, s.date, s.col, s.where);
+    let out = rows.map(r => ({ d: day(r[s.date]), v: s.parse === "hm" ? hm(r[s.col]) : +r[s.col], c: r.completed })).filter(r => isFinite(r.v));
+    if (s.daily) { const today = new Date().toLocaleDateString("sv-SE"); out = out.filter(r => r.d < today && (!C.SOLO_COMPLETATI || r.c)); } // giorno in corso sempre escluso
+    return out;
   })();
 }
 
@@ -170,7 +173,7 @@ const inW = (r, a, b = 0) => r.filter(x => x.d > iso(a) && x.d <= iso(b)); // gi
 const V = r => r.map(x => x.v), avg = a => a.length ? sum(a) / a.length : NaN;
 const sd = a => { const m = avg(a); return Math.sqrt(avg(a.map(x => (x - m) ** 2))); };
 const last = r => r[r.length - 1]?.v, T = C.TARGET || {};
-const mac = (s, k) => ({ n: [s, "kcal"], f: D => 100 * avg(V(inW(D[s], 7))) * k / avg(V(inW(D.kcal, 7))) });
+const mac = (s, k) => ({ n: ["proteine", "carbo", "grassi_g"], f: D => { const a = x => avg(V(inW(D[x], 7))); return 100 * a(s) * k / (4 * a("proteine") + 4 * a("carbo") + 9 * a("grassi_g")); } });
 const CALC = {
   mg:   { n: ["muscolo", "grasso", "peso"], f: D => last(D.muscolo) / (last(D.peso) * last(D.grasso) / 100) },
   ffmi: { n: ["lbm"], f: D => last(D.lbm) / T.altezza_m ** 2 + 6.1 * (1.8 - T.altezza_m) },
@@ -295,4 +298,5 @@ async function init(p){
   }
 }
 window.Page = { init, shell, C };
+if (window.__TEST__) window.__t = { load, CALC, aggregate, key };
 })();

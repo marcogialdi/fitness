@@ -83,3 +83,41 @@ tr.now td{background:#4ade8010}
 .rowx .pv{grid-column:1/-1;font-size:.85rem;margin-top:-2px}
 .card h4{margin:20px 0 4px;color:var(--txt);font-size:1.05rem}
 button:disabled,input:disabled,select:disabled{opacity:.5;cursor:not-allowed}
+
+/* ---------- smartphone / PWA ---------- */
+html{-webkit-text-size-adjust:100%}
+body{overscroll-behavior-y:none;-webkit-tap-highlight-color:transparent}
+.wrap{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-top:max(16px,env(safe-area-inset-top))}
+nav{position:sticky;top:max(0px,env(safe-area-inset-top));z-index:5}
+@media (max-width:720px){
+  .wrap{padding-left:max(10px,env(safe-area-inset-left));padding-right:max(10px,env(safe-area-inset-right))}
+  nav{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-left:-4px;margin-right:-4px;gap:4px}
+  nav::-webkit-scrollbar{display:none}
+  nav a{white-space:nowrap;padding:10px 14px;flex:0 0 auto}
+  .chips{padding:8px 10px;gap:6px;font-size:.8rem}
+  h1{font-size:1.5rem;margin:18px 0 4px}
+  .sub{font-size:.92rem;margin-bottom:12px}
+  .bar{padding:10px;gap:6px;margin-bottom:14px}
+  .bar span{width:100%;margin:0}
+  .pill{padding:9px 14px;min-height:40px}
+  .card{padding:14px 14px;border-radius:14px}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:14px}
+  .kpi{padding:12px}
+  .kpi small{font-size:.7rem;padding-right:24px}
+  .kpi .v{font-size:1.4rem}
+  .kpi .d{font-size:.8rem}
+  .charts{gap:12px}
+  .chart h3{font-size:1.05rem}
+  .cv,.wide .cv{height:260px}
+  .zoom{padding:9px 12px;min-height:40px}
+  #modal{padding:max(8px,env(safe-area-inset-top)) 8px max(8px,env(safe-area-inset-bottom))}
+  #modal .cv{padding:8px}
+  #range{min-width:0;flex:1 1 100%;order:5}
+  input,select,textarea{font-size:16px}
+  .rowx{grid-template-columns:1fr auto}
+  .rowx .pat{grid-column:1/-1;grid-row:2}
+  .rowx .pv{grid-row:3}
+  .tw,.card table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  #help .hb{max-height:70vh;overflow:auto}
+}
+@media (display-mode:standalone){ nav{top:env(safe-area-inset-top)} }

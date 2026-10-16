@@ -103,7 +103,7 @@ function makeReplace(sb){
 }
 if (typeof Page === "undefined") { module.exports = { parseCSV, pdate, cast, norm, autoMap, buildRecs, needsWarn, scopeOf, makeReplace }; return; }
 
-const C = Page.C, w = Page.shell({ title: "Carica Dati", sub: "Importa i CSV di BIA, Allenamenti e Alimentazione (Cronometer) e inserisci a mano i report settimanali RingConn." });
+const C = Page.C, w = Page.shell({ title: "Carica Dati", sub: "Aggiorna gli allenamenti da Hevy, importa i CSV di BIA e Alimentazione (Cronometer) e inserisci a mano i report settimanali RingConn." });
 const $ = h => { const t = document.createElement("template"); t.innerHTML = h.trim(); return t.content.firstChild; };
 if (!C.SUPABASE_URL) { w.append($(`<p class="msg">Configura SUPABASE_URL e SUPABASE_ANON_KEY in assets/config.js.</p>`)); return; }
 const sb = window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_ANON_KEY);
@@ -130,11 +130,11 @@ sb.auth.onAuthStateChange((_, s) => { if ((s?.user?.id || null) !== (user?.id ||
 
 /* ---- import CSV ---- */
 const { replaceAll } = makeReplace(sb);
-function importer(t){
+function importer(t, alt){
   const T = C.TABLES[t], saved = JSON.parse(localStorage.getItem("map:" + t) || "{}");
   const intro = T.merge ? "Per ogni giorno presente nel CSV i dati vengono sostituiti; i giorni fuori dal periodo del file restano invariati." : "Ogni caricamento <b>sostituisce tutti i dati</b> della tabella con il contenuto del CSV.";
   const modes = T.merge ? `<p><label><input type="radio" name="m-${t}" value="merge" checked> Aggiorna solo il periodo del file <small class="msg">(consigliato)</small></label><br><label><input type="radio" name="m-${t}" value="all"> Sostituisci tutta la tabella</label></p>` : "";
-  const el = card(`<h3>${T.label} <small class="msg">· tabella ${t}</small></h3><p class="msg">${intro}</p>${modes}<input type="file" accept=".csv,text/csv"><div class="map"></div><p><button class="pill on" disabled>Carica dati</button> <span class="st msg"></span></p><progress max="1" value="0" hidden></progress><div class="res" role="status" aria-live="polite"></div>`);
+  const el = card(`<h3>${T.label}${alt ? " " + alt : ""} <small class="msg">· tabella ${t}</small></h3><p class="msg">${intro}</p>${modes}<input type="file" accept=".csv,text/csv"><div class="map"></div><p><button class="pill on" disabled>Carica dati</button> <span class="st msg"></span></p><progress max="1" value="0" hidden></progress><div class="res" role="status" aria-live="polite"></div>`);
   const pb = el.querySelector("progress"), res = el.querySelector(".res"), file = el.querySelector("input[type=file]"), mp = el.querySelector(".map"), go = el.querySelector("button"), st = el.querySelector(".st");
   const mode = () => T.merge ? el.querySelector(`input[name="m-${t}"]:checked`).value : "all";
   let head = [], rows = [], map = {};
@@ -186,7 +186,52 @@ function importer(t){
     ref();
   };
 }
-importer("bia_measurements"); importer("workouts"); importer("nutrition_daily");
+importer("bia_measurements");
+/* ---- Hevy: sincronizzazione degli allenamenti ---- */
+const hv = card(`<h3>🏋️ Allenamenti · Hevy <small class="msg">· sincronizzazione automatica</small></h3><p class="msg" id="hv-i">Controllo lo stato…</p><p><button class="pill on" id="hv-go" disabled>Aggiorna da Hevy</button> <button class="pill" id="hv-full" disabled title="Rilegge tutto lo storico da Hevy">Risincronizza tutto</button> <span class="st msg" id="hv-st"></span></p><progress hidden></progress><div class="res" id="hv-r" role="status" aria-live="polite"></div>`);
+const hq = s => hv.querySelector(s), hres = hq("#hv-r");
+let hlast = null, hready = false;
+const fmtDT = t => new Date(t).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" });
+async function hevyInfo(){
+  const { data, error } = await sb.from("settings").select("value").eq("key", "hevy_sync").limit(1);
+  hlast = !error && data?.[0]?.value || null;
+  const c = await sb.from("workouts").select("*", { count: "exact", head: true }).is("hevy_workout_id", null);
+  hready = !c.error;
+  hq("#hv-i").innerHTML = !hready ? `<b>Manca la colonna <code>hevy_workout_id</code>:</b> esegui <b>setup_hevy.sql</b> nell'SQL Editor di Supabase e ricarica la pagina.`
+    : hlast ? `Ultimo aggiornamento da Hevy: <b>${fmtDT(hlast.at)}</b> · ${hlast.workouts} allenamenti${hlast.mode === "full" ? " (sincronizzazione completa)" : " aggiornati"}. Il pulsante scarica solo le novità.`
+    : `Mai sincronizzato. La <b>prima sincronizzazione</b> scarica tutto lo storico da Hevy${c.count ? ` e sostituisce le ${c.count} righe importate da CSV` : ""}.`;
+  hq("#hv-go").textContent = hlast ? "Aggiorna da Hevy" : "Prima sincronizzazione";
+  hooks.forEach(h => h());
+}
+hooks.push(() => { hq("#hv-go").disabled = !(user && hready); hq("#hv-full").disabled = !(user && hready && hlast); });
+async function hevySync(full){
+  const first = !hlast; let replaceLegacy = false; hres.className = "res"; hres.textContent = "";
+  if (first || full) {
+    const c = await sb.from("workouts").select("*", { count: "exact", head: true }).is("hevy_workout_id", null);
+    if (c.count > 0) {
+      if (!confirm(`Nel database ci sono ${c.count} righe di allenamenti importate da CSV.\n\nLa sincronizzazione scarica tutto lo storico da Hevy e SOSTITUISCE quelle righe. I dati di Hevy vengono inseriti prima: se qualcosa va storto, le righe esistenti restano.\n\nContinuare?`)) return;
+      replaceLegacy = true;
+    } else if (full && !confirm("Rileggere tutto lo storico da Hevy?")) return;
+  }
+  const btns = [hq("#hv-go"), hq("#hv-full")], pb = hq("progress"); btns.forEach(b => b.disabled = true); pb.hidden = false; pb.removeAttribute("value");
+  hq("#hv-st").textContent = first || full ? "Scarico lo storico da Hevy (può richiedere circa un minuto)…" : "Controllo le novità su Hevy…";
+  const t0 = Date.now();
+  try {
+    const { data, error } = await sb.functions.invoke("sync-hevy", { body: { mode: first || full ? "full" : "incremental", replaceLegacy } });
+    if (error) { let m = error.message; try { const j = await error.context.json(); if (j?.error) m = j.error; } catch (_) { /* nessun dettaglio */ }
+      if (/not found|404|Failed to send|fetch/i.test(m) && !/Hevy/.test(m)) m = "La funzione «sync-hevy» non risponde: è stata distribuita su Supabase? (vedi le istruzioni in HEVY.md)"; throw new Error(m); }
+    if (!data?.ok) throw new Error(data?.error || "Risposta non valida dalla funzione");
+    hq("#hv-st").textContent = "Verifica dei dati salvati…";
+    const { count: n } = await sb.from("workouts").select("*", { count: "exact", head: true });
+    const { data: lt } = await sb.from("workouts").select("start_time").order("start_time", { ascending: false }).limit(1);
+    hres.className = "res " + (data.partial ? "warn" : "ok");
+    hres.innerHTML = `<b>${data.partial ? "⚠ Aggiornamento interrotto per tempo: premi di nuovo il pulsante" : "✔ Aggiornamento completato"}</b><br>Allenamenti scaricati: <b>${data.workouts}</b> (${data.sets} serie)${data.deleted ? ` · eliminati su Hevy: <b>${data.deleted}</b>` : ""}${data.legacy_removed ? ` · righe CSV sostituite: <b>${data.legacy_removed}</b>` : ""}<br>Righe totali in tabella: <b>${n}</b> · ultimo allenamento: <b>${lt?.[0] ? fmtDT(lt[0].start_time) : "n/d"}</b> · completato alle ${new Date().toLocaleTimeString("it-IT")} in ${Math.round((Date.now() - t0) / 1000)} s<br><span class="msg">${data.workouts ? "Ricarica le altre pagine per vedere i nuovi dati." : "Nessun allenamento nuovo da Hevy."}</span>`;
+  } catch (e) { hres.className = "res err"; hres.innerHTML = `<b>✖ Aggiornamento non riuscito</b><br>${esc(e.message || e)}`; }
+  pb.hidden = true; hq("#hv-st").textContent = ""; await hevyInfo();
+}
+hq("#hv-go").onclick = () => hevySync(false); hq("#hv-full").onclick = () => hevySync(true);
+hevyInfo();
+importer("workouts", "· alternativa da CSV"); importer("nutrition_daily");
 
 /* ---- RingConn: inserimento manuale ---- */
 const RT = "ringconn_weekly_reports", F = [

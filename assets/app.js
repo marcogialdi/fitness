@@ -41,7 +41,7 @@ const sessions = () => sessP ||= (async () => { // da righe-serie a sessioni
   for (const r of await sets()) {
     let s = m.get(r.start_time);
     if (!s) m.set(r.start_time, s = { d: day(r.start_time), dur: (Date.parse(r.end_time) - Date.parse(r.start_time)) / 6e4, vol: 0, n: 0, x: [] });
-    if (r.set_type === "warmup") continue;
+    if (r.set_type === "warmup" || /^warm ?up$/i.test(r.exercise_title || "")) continue; // riscaldamento: né serie né volume
     const w = +r.weight_kg || 0, k = +r.reps || 0;
     s.vol += w * k; s.n++; if (w && k) s.x.push([r.exercise_title || "", w * (1 + k / 30)]); // Epley
   }
@@ -241,25 +241,28 @@ function openHelp(h, title){
   H.prev = document.activeElement; H.classList.add("open"); H.querySelector("button").focus();
 }
 /* ---------- KPI: ultimo valore + variazione, medie 7 gg, KPI calcolati ---------- */
-const iso = o => new Date(Date.now() - o * 864e5).toISOString().slice(0, 10);
+const iso = o => { const t = new Date(); t.setDate(t.getDate() - o); return t.toLocaleDateString("sv-SE"); }; // data locale (non UTC): tra mezzanotte e le 2 le finestre restavano indietro di un giorno
 const inW = (r, a, b = 0) => r.filter(x => x.d > iso(a) && x.d <= iso(b)); // giorni (b, a] fa
+// finestra di a giorni COMPLETI che termina ieri: per i dati nutrizionali il giorno in corso è escluso, quindi inW(r,7) ne conterebbe solo 6
+const inN = (r, a) => inW(r, a + 1, 1);
 const V = r => r.map(x => x.v), avg = a => a.length ? sum(a) / a.length : NaN;
 const sd = a => { const m = avg(a); return Math.sqrt(avg(a.map(x => (x - m) ** 2))); };
 const last = r => r[r.length - 1]?.v, T = C.TARGET || {};
 const sgn = (x, d = 2) => (x >= 0 ? "+" : "−") + Math.abs(x).toFixed(d);
 const pct = x => (x >= 0 ? "+" : "−") + Math.abs(Math.round(100 * x)) + "%";
-const mac = (s, k) => ({ n: ["proteine", "carbo", "grassi_g"], f: D => { const a = x => avg(V(inW(D[x], 7))); return 100 * a(s) * k / (4 * a("proteine") + 4 * a("carbo") + 9 * a("grassi_g")); } });
+const mac = (s, k) => ({ n: ["proteine", "carbo", "grassi_g"], f: D => { const a = x => avg(V(inN(D[x], 7))); return 100 * a(s) * k / (4 * a("proteine") + 4 * a("carbo") + 9 * a("grassi_g")); } });
 const CALC = {
-  mg:   { n: ["muscolo", "grasso", "peso"], f: D => last(D.muscolo) / (last(D.peso) * last(D.grasso) / 100) },
+  // massa grassa in kg = peso × grasso%: il peso è quello del giorno della misura del grasso (o il precedente), non una pesata successiva parziale
+  mg:   { n: ["muscolo", "grasso", "peso"], f: D => { const g = D.grasso.at(-1), p = g && [...D.peso].reverse().find(x => x.d <= g.d); return p ? last(D.muscolo) / (p.v * g.v / 100) : NaN; } },
   ffmi: { n: ["lbm"], f: D => last(D.lbm) / T.altezza_m ** 2 + 6.1 * (1.8 - T.altezza_m) },
-  protkg: { n: ["proteine", "peso"], f: D => avg(V(inW(D.proteine, 7))) / last(D.peso) },
+  protkg: { n: ["proteine", "peso"], f: D => avg(V(inN(D.proteine, 7))) / last(D.peso) },
   // target kcal della fase attiva in ciascun giorno (se non c'è una fase con target: n/d)
   aderenza: { n: ["kcal"], f: D => {
-    const a = inW(D.kcal, 30).map(r => [r.v, tk(r.d)]).filter(x => x[1]);
+    const a = inN(D.kcal, 30).map(r => [r.v, tk(r.d)]).filter(x => x[1]);
     if (!a.length) return { text: "n/d", sub: "imposta una fase con target kcal in Setup" };
     return { v: 100 * a.filter(([v, t]) => Math.abs(v / t - 1) <= .1).length / a.length, sub: `giorni entro ±10% del target (${a.length} su 30)` }; } },
   tdee: { n: ["kcal", "peso"], f: D => {
-    const est = avg(V(inW(D.kcal, 28))) - (avg(V(inW(D.peso, 7))) - avg(V(inW(D.peso, 35, 28)))) * 7700 / 28, dec = +S.tdee?.declared_kcal;
+    const est = avg(V(inN(D.kcal, 28))) - (avg(V(inW(D.peso, 7))) - avg(V(inW(D.peso, 35, 28)))) * 7700 / 28, dec = +S.tdee?.declared_kcal;
     return { v: est, sub: dec ? `dichiarato ${Math.round(dec)}${isFinite(est) ? " · " + pct(est / dec - 1) : ""}` : "kcal assunte − variazione peso (28 gg)" }; } },
   fase: { n: [], f: () => {
     const p = phaseOn(today()); if (!p) return { text: "n/d", sub: "nessuna fase attiva: impostala in Setup" };
@@ -271,17 +274,17 @@ const CALC = {
     if (xs[xs.length - 1] < 14) return { text: "n/d", sub: "servono pesate distribuite su almeno 14 giorni" };
     const mx = avg(xs), my = avg(ys), b = sum(xs.map((x, i) => (x - mx) * (ys[i] - my))) / sum(xs.map(x => (x - mx) ** 2)) * 7, tg = targetOn(today(), "target_rate_kg_week");
     return { v: b, text: sgn(b), unit: "kg/sett", sub: (tg != null ? `previsto ${sgn(tg)} · ` : "") + "ultimi 28 gg" }; } },
-  cal7: { n: ["kcal"], f: D => { const v = avg(V(inW(D.kcal, 7))), t = tk(today()); return { v, sub: t ? `target ${t} · ${pct(v / t - 1)} · 7 gg` : "media 7 gg" }; } },
+  cal7: { n: ["kcal"], f: D => { const v = avg(V(inN(D.kcal, 7))), t = tk(today()); return { v, sub: t ? `target ${t} · ${pct(v / t - 1)} · 7 gg` : "media 7 gg" }; } },
   prot7: { n: ["proteine", "peso"], f: D => {
-    const v = avg(V(inW(D.proteine, 7))), p = last(D.peso), t = targetOn(today(), "target_protein_g");
+    const v = avg(V(inN(D.proteine, 7))), p = last(D.peso), t = targetOn(today(), "target_protein_g");
     return { v, sub: [isFinite(v / p) ? (v / p).toFixed(2) + " g/kg" : null, t ? "target " + t + " g" : null].filter(Boolean).join(" · ") || "media 7 gg" }; } },
   macro3: { n: ["proteine", "carbo", "grassi_g"], f: D => {
-    const a = x => avg(V(inW(D[x], 7))), tot = 4 * a("proteine") + 4 * a("carbo") + 9 * a("grassi_g"), q = (x, k) => Math.round(100 * a(x) * k / tot);
+    const a = x => avg(V(inN(D[x], 7))), tot = 4 * a("proteine") + 4 * a("carbo") + 9 * a("grassi_g"), q = (x, k) => Math.round(100 * a(x) * k / tot);
     return isFinite(tot) ? { text: `${q("proteine", 4)} / ${q("carbo", 4)} / ${q("grassi_g", 9)}`, unit: "%", sub: "proteine / carboidrati / grassi · 7 gg" } : { text: "n/d", sub: "" }; } },
   macroP: mac("proteine", 4), macroC: mac("carbo", 4), macroF: mac("grassi_g", 9),
   sess:    { n: ["sessioni"], f: D => sum(V(inW(D.sessioni, 28))) / 4 },
   volsett: { n: ["volume"], f: D => sum(V(inW(D.volume, 28))) / 4 },
-  giorni:  { n: ["volume"], f: D => { const l = D.volume.at(-1); return l ? Math.floor((Date.now() - Date.parse(l.d)) / 864e5) : NaN; } },
+  giorni:  { n: ["volume"], f: D => { const l = D.volume.at(-1); return l ? Math.round((Date.parse(iso(0)) - Date.parse(l.d)) / 864e5) : NaN; } },
   streak:  { n: ["sessioni"], f: D => {
     const w = new Map(); D.sessioni.forEach(r => { const k = key(r.d, "week"); w.set(k, (w.get(k) || 0) + r.v); });
     const t = new Date(key(iso(0), "week") + "T00:00:00Z"), ok = () => (w.get(t.toISOString().slice(0, 10)) || 0) >= T.sessioni;

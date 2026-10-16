@@ -3,7 +3,7 @@
 const C = window.CONFIG;
 const GR = [["day","Giorno"],["week","Settimana"],["month","Mese"],["quarter","Trimestre"],["semester","Semestre"],["year","Anno"]];
 const WIN = { day: 60, week: 52, month: 36, quarter: 20, semester: 12, year: 10 }; // punti mostrati per granularità
-const PAGES = [["index.html","Home"],["fitness.html","Fitness"],["alimentazione.html","Alimentazione"],["piano.html","Piano Alimentare"],["allenamenti.html","Allenamenti"],["wellness.html","Wellness"],["carica.html","Carica Dati"],["setup.html","Setup"]];
+const PAGES = [["index.html","Home"],["fitness.html","Fitness"],["misure.html","Misure"],["alimentazione.html","Alimentazione"],["piano.html","Piano Alimentare"],["allenamenti.html","Allenamenti"],["wellness.html","Wellness"],["carica.html","Carica Dati"],["setup.html","Setup"]];
 const LC = ["#ec4899", "#4ade80", "#fb923c", "#38bdf8", "#facc15", "#2dd4bf"]; // colori degli esercizi chiave
 const ls = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
 const state = { gran: "day", cards: [], show: { phases: ls("show:phases") !== "0", events: ls("show:events") !== "0" } };
@@ -296,6 +296,23 @@ const CALC = {
   pr: { get n() { return Object.keys(C.SOURCES).filter(k => k.startsWith("e1rm_")); }, f: D => Object.values(D).filter(r => { const a = Math.max(...V(inW(r, 30))), b = Math.max(...V(r.filter(x => x.d <= iso(30)))); return a > 0 && isFinite(b) && a > b; }).length },
   hrvb:  { n: ["hrv"], f: D => 100 * (avg(V(inW(D.hrv, 7))) / avg(V(inW(D.hrv, 60))) - 1) }
 };
+// Misure: ultimo valore di ogni circonferenza con variazione dalla misura precedente e dall'inizio della fase in corso
+for (const [k] of C.MISURE || []) CALC["mis_" + k] = { n: ["mis_" + k], f: D => {
+  const r = D["mis_" + k], l = r.at(-1); if (!l) return { text: "n/d", sub: "nessuna misura" };
+  const p = r.at(-2), ph = phaseOn(today()), b = ph && r.find(x => x.d >= ph.start_date), out = [fmtD(l.d)];
+  if (p) out.push(`${sgn(l.v - p.v, 1)} cm vs prec.`);
+  if (b && b !== l) out.push(`${sgn(l.v - b.v, 1)} cm da inizio fase`);
+  return { v: l.v, sub: out.join(" · ") }; } };
+const MIS_ALL = (C.MISURE || []).map(([k]) => "mis_" + k);
+Object.assign(CALC, {
+  vita_spalle: { n: ["mis_vita", "mis_spalle"], f: D => { const v = last(D.mis_vita), s = last(D.mis_spalle); return v && s ? { v: v / s, sub: "vita / spalle: più è basso, più la vita è stretta rispetto alle spalle" } : { text: "n/d", sub: "servono vita e spalle" }; } },
+  asim_braccia: { n: ["mis_braccio_dx", "mis_braccio_sx"], f: D => { const a = last(D.mis_braccio_dx), b = last(D.mis_braccio_sx); return a && b ? { v: a - b, text: sgn(a - b, 1), unit: "cm", sub: "destro − sinistro" } : { text: "n/d", sub: "servono entrambe le braccia" }; } },
+  asim_cosce: { n: ["mis_coscia_dx", "mis_coscia_sx"], f: D => { const a = last(D.mis_coscia_dx), b = last(D.mis_coscia_sx); return a && b ? { v: a - b, text: sgn(a - b, 1), unit: "cm", sub: "destra − sinistra" } : { text: "n/d", sub: "servono entrambe le cosce" }; } },
+  mis_ultima: { n: MIS_ALL, f: D => {
+    const d = MIS_ALL.map(k => D[k].at(-1)?.d).filter(Boolean).sort().at(-1); if (!d) return { text: "n/d", sub: "nessuna misura registrata" };
+    const gg = Math.round((Date.parse(iso(0)) - Date.parse(d)) / 864e5), nx = addD(d, 28);
+    return { v: gg, text: String(gg), unit: gg === 1 ? "giorno fa" : "giorni fa", sub: `${fmtD(d)} · ${nx <= today() ? "è ora di misurarsi" : "prossima dal " + fmtD(nx)}` }; } }
+});
 // KPI: {title, source, kind:'last'|'avg7'}  oppure  {title, calc:'nome'}
 async function addKpis(host, list){
   for (const k of list) {

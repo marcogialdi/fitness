@@ -3,7 +3,7 @@
 const C = window.CONFIG;
 const GR = [["day","Giorno"],["week","Settimana"],["month","Mese"],["quarter","Trimestre"],["semester","Semestre"],["year","Anno"]];
 const WIN = { day: 60, week: 52, month: 36, quarter: 20, semester: 12, year: 10 }; // punti mostrati per granularità
-const PAGES = [["index.html","Home"],["fitness.html","Fitness"],["alimentazione.html","Alimentazione"],["allenamenti.html","Allenamenti"],["wellness.html","Wellness"],["carica.html","Carica Dati"],["setup.html","Setup"]];
+const PAGES = [["index.html","Home"],["fitness.html","Fitness"],["alimentazione.html","Alimentazione"],["piano.html","Piano Alimentare"],["allenamenti.html","Allenamenti"],["wellness.html","Wellness"],["carica.html","Carica Dati"],["setup.html","Setup"]];
 const LC = ["#ec4899", "#4ade80", "#fb923c", "#38bdf8", "#facc15", "#2dd4bf"]; // colori degli esercizi chiave
 const ls = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
 const state = { gran: "day", cards: [], show: { phases: ls("show:phases") !== "0", events: ls("show:events") !== "0" } };
@@ -417,6 +417,6 @@ async function init(p){
   }
 }
 async function calc(name){ const c = CALC[name], D = {}; (await Promise.all(c.n.map(load))).forEach((r, i) => D[c.n[i]] = r); return c.f(D); }
-window.Page = { init, shell, C, S, loadSettings, load, sets, rx, calc, PH, key, aggregate };
+window.Page = { init, shell, C, S, client, loadSettings, load, sets, rx, calc, PH, key, aggregate };
 if (window.__TEST__) window.__t = { load, CALC, aggregate, key };
 })();

@@ -121,3 +121,14 @@ nav{position:sticky;top:max(0px,env(safe-area-inset-top));z-index:5}
   #help .hb{max-height:70vh;overflow:auto}
 }
 @media (display-mode:standalone){ nav{top:env(safe-area-inset-top)} }
+
+/* ---------- piano alimentare ---------- */
+.pa-sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px 22px;margin:10px 0 6px}
+.pa-row{display:flex;justify-content:space-between;gap:8px;margin-bottom:4px}
+.pa-bar{height:8px;background:var(--bg);border-radius:6px;overflow:hidden}.pa-bar i{display:block;height:100%;background:var(--blue);border-radius:6px}
+.pa-meals{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:14px;margin:14px 0}
+.pa-meals h3{margin:0}.pa-t{margin:2px 0 8px;font-size:.88rem}
+.pa-l{list-style:none;margin:0;padding:0}.pa-l li{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px dashed var(--line)}.pa-l li:last-child{border-bottom:0}
+.pa-l li.nq span{color:var(--orange)}
+.pa-l li.hd span{font-weight:700;color:var(--blue)}
+.pa-l li.hd{padding-bottom:2px}

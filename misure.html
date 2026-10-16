@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f172a"><link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="assets/icons/icon-192.png"><link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Fitness">
+<link rel="stylesheet" href="assets/style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="assets/config.js"></script><script src="assets/sources.js"></script><script src="assets/help.js"></script><script src="assets/app.js"></script><script src="assets/pwa.js" defer></script></head>
+<body><script src="assets/auth.js"></script><script src="assets/misure.js"></script><script>
+Promise.resolve(Page.init({
+ "title": "Misure",
+ "sub": "Circonferenze corporee, una misurazione al mese.",
+ "kpis": [
+  {
+   "title": "Vita",
+   "color": "#fb923c",
+   "dec": 1,
+   "unit": "cm",
+   "calc": "mis_vita"
+  },
+  {
+   "title": "Fianchi",
+   "color": "#fb923c",
+   "dec": 1,
+   "unit": "cm",
+   "calc": "mis_fianchi"
+  },
+  {
+   "title": "Petto",
+   "color": "#38bdf8",
+   "dec": 1,
+   "unit": "cm",
+   "calc": "mis_petto"
+  },
+  {
+   "title": "Spalle",
+   "color": "#38bdf8",
+   "dec": 1,
+   "unit": "cm",
+   "calc": "mis_spalle"
+  },
+  {
+   "title": "Braccio destro",
+   "color": "#4ade80",
+   "dec": 1,
+   "unit": "cm",
+   "calc": "mis_braccio_dx"
+  },
+  {
+   "title": "Coscia destra",
+   "color": "#2dd4bf",
+   "dec": 1,
+   "unit": "cm",
+   "calc": "mis_coscia_dx"
+  },
+  {
+   "title": "Rapporto vita/spalle",
+   "color": "#facc15",
+   "dec": 2,
+   "calc": "vita_spalle"
+  },
+  {
+   "title": "Ultima misurazione",
+   "color": "#94a3b8",
+   "calc": "mis_ultima"
+  }
+ ],
+ "charts": [
+  {
+   "section": "Tronco",
+   "note": "vita, fianchi, petto, spalle, collo"
+  },
+  {
+   "type": "line",
+   "title": "Vita",
+   "label": "Vita (cm)",
+   "source": "mis_vita",
+   "color": "#fb923c"
+  },
+  {
+   "type": "line",
+   "title": "Fianchi",
+   "label": "Fianchi (cm)",
+   "source": "mis_fianchi",
+   "color": "#facc15"
+  },
+  {
+   "type": "line",
+   "title": "Petto",
+   "label": "Petto (cm)",
+   "source": "mis_petto",
+   "color": "#38bdf8"
+  },
+  {
+   "type": "line",
+   "title": "Spalle",
+   "label": "Spalle (cm)",
+   "source": "mis_spalle",
+   "color": "#2dd4bf"
+  },
+  {
+   "type": "line",
+   "title": "Collo",
+   "label": "Collo (cm)",
+   "source": "mis_collo",
+   "color": "#ec4899"
+  },
+  {
+   "section": "Braccia",
+   "note": "braccia e avambracci, destra e sinistra",
+   "collapsed": true,
+   "kpis": [
+    {
+     "title": "Asimmetria braccia",
+     "color": "#facc15",
+     "calc": "asim_braccia"
+    }
+   ]
+  },
+  {
+   "type": "line",
+   "title": "Braccio destro",
+   "label": "Braccio destro (cm)",
+   "source": "mis_braccio_dx",
+   "color": "#4ade80"
+  },
+  {
+   "type": "line",
+   "title": "Braccio sinistro",
+   "label": "Braccio sinistro (cm)",
+   "source": "mis_braccio_sx",
+   "color": "#2dd4bf"
+  },
+  {
+   "type": "line",
+   "title": "Avambraccio destro",
+   "label": "Avambraccio destro (cm)",
+   "source": "mis_avambraccio_dx",
+   "color": "#38bdf8"
+  },
+  {
+   "type": "line",
+   "title": "Avambraccio sinistro",
+   "label": "Avambraccio sinistro (cm)",
+   "source": "mis_avambraccio_sx",
+   "color": "#ec4899"
+  },
+  {
+   "section": "Gambe",
+   "note": "cosce e polpacci, destra e sinistra",
+   "collapsed": true,
+   "kpis": [
+    {
+     "title": "Asimmetria cosce",
+     "color": "#facc15",
+     "calc": "asim_cosce"
+    }
+   ]
+  },
+  {
+   "type": "line",
+   "title": "Coscia destra",
+   "label": "Coscia destra (cm)",
+   "source": "mis_coscia_dx",
+   "color": "#2dd4bf"
+  },
+  {
+   "type": "line",
+   "title": "Coscia sinistra",
+   "label": "Coscia sinistra (cm)",
+   "source": "mis_coscia_sx",
+   "color": "#4ade80"
+  },
+  {
+   "type": "line",
+   "title": "Polpaccio destro",
+   "label": "Polpaccio destro (cm)",
+   "source": "mis_polpaccio_dx",
+   "color": "#38bdf8"
+  },
+  {
+   "type": "line",
+   "title": "Polpaccio sinistro",
+   "label": "Polpaccio sinistro (cm)",
+   "source": "mis_polpaccio_sx",
+   "color": "#ec4899"
+  }
+ ]
+})).catch(e=>console.error(e)).then(()=>Misure.mount());
+</script></body></html>

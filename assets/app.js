@@ -35,26 +35,29 @@ async function fetchAll(table, cols, order, notnull, where){ // paginazione con 
   return out;
 }
 let setsP, sessP;
-const sets = () => setsP ||= C.SUPABASE_URL ? fetchAll("workouts", "start_time,end_time,exercise_title,set_type,weight_kg,reps", "start_time") : Promise.resolve([]);
+const sets = () => setsP ||= C.SUPABASE_URL ? fetchAll("workouts", "start_time,end_time,title,exercise_title,set_type,weight_kg,reps", "start_time") : Promise.resolve([]);
+// "Day A" / "Days D" / "...Day D" / "Test Massimali D" -> lettera della sessione (altrimenti null)
+const dayOf = t => { const m = String(t || "").match(/days?\s*([a-z])\b/i) || String(t || "").match(/\s([a-d])\s*$/i); return m ? m[1].toUpperCase() : null; };
 const sessions = () => sessP ||= (async () => { // da righe-serie a sessioni
   const m = new Map();
   for (const r of await sets()) {
     let s = m.get(r.start_time);
-    if (!s) m.set(r.start_time, s = { d: day(r.start_time), dur: (Date.parse(r.end_time) - Date.parse(r.start_time)) / 6e4, vol: 0, n: 0, x: [] });
-    if (r.set_type === "warmup" || /^warm ?up$/i.test(r.exercise_title || "")) continue; // riscaldamento: né serie né volume
+    if (!s) m.set(r.start_time, s = { d: day(r.start_time), dur: (Date.parse(r.end_time) - Date.parse(r.start_time)) / 6e4, day: dayOf(r.title), vol: 0, n: 0, x: [] });
     const w = +r.weight_kg || 0, k = +r.reps || 0;
-    s.vol += w * k; s.n++; if (w && k) s.x.push([r.exercise_title || "", w * (1 + k / 30)]); // Epley
+    s.vol += w * k; // il riscaldamento conta nel volume della sessione
+    if (r.set_type === "warmup" || /^warm ?up$/i.test(r.exercise_title || "")) continue; // ...ma non nelle serie né nel 1RM
+    s.n++; if (w && k) s.x.push([r.exercise_title || "", w * (1 + k / 30)]); // Epley
   }
   return [...m.values()];
 })();
 const METRIC = { volume: s => s.vol, durata: s => s.dur, sessioni: () => 1, serie: s => s.n };
-function load(id){
-  return cache[id] ||= (async () => {
+function load(id, day){
+  return cache[id + (day ? "|" + day : "")] ||= (async () => {
     const s = C.SOURCES[id];
     if (!C.SUPABASE_URL || !window.supabase) return s.demo ? demo(s.demo) : [];
     if (s.kind === "workouts") {
       const f = s.match ? (x => { const v = x.x.filter(e => s.match.test(e[0])).map(e => e[1]); return v.length ? Math.max(...v) : null; }) : METRIC[s.metric];
-      return (await sessions()).map(x => ({ d: x.d, v: f(x) })).filter(r => r.v != null && isFinite(r.v));
+      return (await sessions()).filter(x => !day || x.day === day).map(x => ({ d: x.d, v: f(x) })).filter(r => r.v != null && isFinite(r.v));
     }
     const rows = await fetchAll(s.table, `${s.date},${s.col}${s.daily ? ",completed" : ""}`, s.date, s.col, s.where);
     let out = rows.map(r => ({ d: day(r[s.date]), v: s.parse === "hm" ? hm(r[s.col]) : +r[s.col], c: r.completed })).filter(r => isFinite(r.v));
@@ -173,7 +176,7 @@ function draw(canvas, cfg, labels, vals, tr, old){
   });
 }
 async function series(cfg){
-  const a = aggregate(await load(cfg.source), state.gran, cfg.agg || "avg"); // sempre tutto lo storico
+  const a = aggregate(await load(cfg.source, cfg.day), state.gran, cfg.agg || "avg"); // sempre tutto lo storico
   return { labels: a.map(x => label(x.k, state.gran)), vals: a.map(x => +x.v.toFixed(2)), tr: trend(a.map(x => x.v)).map(x => +x.toFixed(2)) };
 }
 async function render(o){
@@ -187,6 +190,13 @@ function addChart(host, cfg, lazy){
   const el = $(`<section class="card chart ${cfg.wide ? "wide" : ""}"><header><h3 style="color:${cfg.color}">${cfg.title}</h3><button class="zoom">🔍 Clicca per ingrandire</button></header><div class="cv"><canvas></canvas></div></section>`);
   host.append(el);
   const o = { cfg, canvas: el.querySelector("canvas"), lazy };
+  if (cfg.dayFilter && C.SUPABASE_URL) sessions().then(ss => { // selettore Day A/B/C/D: filtra le sessioni e ricalcola anche il trend
+    const days = [...new Set(ss.map(s => s.day).filter(Boolean))].sort();
+    if (days.length < 2) return;
+    const sel = $(`<select class="dayf" aria-label="Sessione"><option value="">Tutte le sessioni</option>${days.map(d => `<option value="${d}">Day ${d}</option>`).join("")}</select>`);
+    sel.onchange = () => { o.cfg = { ...cfg, day: sel.value || undefined }; render(o); };
+    el.querySelector("header").insertBefore(sel, el.querySelector(".zoom"));
+  }).catch(() => {});
   if (cfg.type === "groups") { el.querySelector(".zoom").remove(); el.querySelector(".cv").style.cursor = "default"; }
   else el.querySelector(".cv").onclick = el.querySelector(".zoom").onclick = () => openModal(o);
   state.cards.push(o);
@@ -206,7 +216,7 @@ function openModal(o){
   }
   mo = o; off = 0;
   const sc = o.cfg.type === "scatter";
-  M.querySelector("h3").textContent = o.cfg.title + (sc ? "" : " · " + GR.find(g => g[0] === state.gran)[1]);
+  M.querySelector("h3").textContent = o.cfg.title + (o.cfg.day ? " · Day " + o.cfg.day : "") + (sc ? "" : " · " + GR.find(g => g[0] === state.gran)[1]);
   M.querySelectorAll("#prev,#next,#range").forEach(e => e.style.display = sc ? "none" : "");
   M.classList.add("open");
   if (sc) mchart = drawScatter(M.querySelector("canvas"), o.cfg, o.s, mchart); else mdraw();

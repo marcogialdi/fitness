@@ -1,5 +1,5 @@
 // Service worker: shell dell'app disponibile offline. Mai in cache le chiamate a Supabase.
-const V = "dash-v4", CDN = "cdn-v1";
+const V = "dash-v5", CDN = "cdn-v1";
 const SHELL = ["index.html","fitness.html","misure.html","alimentazione.html","piano.html","allenamenti.html","wellness.html","carica.html","setup.html",
   "assets/style.css","assets/app.js","assets/sources.js","assets/help.js","assets/carica.js","assets/setup.js","assets/piano.js","assets/piano_seed.js","assets/misure.js","assets/auth.js","assets/config.js","assets/pwa.js",
   "assets/icons/icon-192.png","manifest.webmanifest"];

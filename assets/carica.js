@@ -101,7 +101,25 @@ function makeReplace(sb){
   }
   return { replaceAll };
 }
-if (typeof Page === "undefined") { module.exports = { parseCSV, pdate, cast, norm, autoMap, buildRecs, needsWarn, scopeOf, makeReplace }; return; }
+
+// Misure Renpho: nessuna intestazione, celle "Etichetta(cm):valore", data italiana ("21 ott 2026  07:33:08"), "--" = vuoto
+const RENPHO = { collo: "neck_cm", spalle: "shoulders_cm", petto: "chest_cm", vita: "waist_cm", addome: "abdomen_cm", fianchi: "hips_cm",
+  "l-braccio": "arm_l_cm", "r-braccio": "arm_r_cm", "l-avambraccio": "forearm_l_cm", "r-avambraccio": "forearm_r_cm",
+  "l-coscia": "thigh_l_cm", "r-coscia": "thigh_r_cm", "l-polpaccio": "calf_l_cm", "r-polpaccio": "calf_r_cm" };
+function parseRenpho(t){
+  const out = [];
+  for (const line of t.replace(/^\uFEFF/, "").split(/\r?\n/)) {
+    const cells = line.split(",").map(x => x.trim()).filter(Boolean); if (cells.length < 2) continue;
+    const iso = pdate(cells[0].replace(/\s+/g, " ")); if (!iso) continue;
+    const d = new Date(iso), o = { measured_on: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
+      note: "Import Renpho " + cells[0].replace(/\s+/g, " ") };
+    for (const c of cells.slice(1)) { const m = c.match(/^(.*?)\s*\(cm\)\s*:\s*(.*)$/i); if (!m) continue;
+      const col = RENPHO[m[1].trim().toLowerCase()], v = parseFloat(m[2].replace(",", ".")); if (col && !isNaN(v)) o[col] = v; }
+    out.push(o);
+  }
+  return out;
+}
+if (typeof Page === "undefined") { module.exports = { parseRenpho, parseCSV, pdate, cast, norm, autoMap, buildRecs, needsWarn, scopeOf, makeReplace }; return; }
 
 const C = Page.C, w = Page.shell({ title: "Carica Dati", sub: "Aggiorna gli allenamenti da Hevy, importa i CSV di BIA e Alimentazione (Cronometer) e inserisci a mano i report settimanali RingConn." });
 const $ = h => { const t = document.createElement("template"); t.innerHTML = h.trim(); return t.content.firstChild; };
@@ -187,6 +205,26 @@ function importer(t, alt){
   };
 }
 importer("bia_measurements");
+
+/* ---- Misure Renpho ---- */
+(() => {
+  const el = card(`<h3>📏 Misure · Renpho <small class="msg">· tabella body_measurements</small></h3><p class="msg">Carica il file esportato da Renpho. Le misure con la stessa data vengono aggiornate, le altre restano.</p><input type="file" accept=".csv,text/csv"><div class="pv msg"></div><p><button class="pill on" disabled>Carica misure</button> <span class="st msg"></span></p><div class="res" role="status" aria-live="polite"></div>`);
+  const file = el.querySelector("input"), pv = el.querySelector(".pv"), go = el.querySelector("button"), st = el.querySelector(".st"), res = el.querySelector(".res");
+  let recs = []; const ref = () => { go.disabled = !(user && recs.length); st.textContent = recs.length && !user ? "Accedi per poter caricare." : ""; }; hooks.push(ref);
+  file.onchange = async () => {
+    res.className = "res"; res.textContent = ""; recs = parseRenpho(await file.files[0].text());
+    pv.innerHTML = recs.length ? recs.map(r => `<b>${esc(r.measured_on)}</b>: ${Object.keys(r).filter(k => k.endsWith("_cm")).length} misure`).join("<br>") : "Nessuna misura riconosciuta nel file.";
+    ref();
+  };
+  go.onclick = async () => {
+    go.disabled = true;
+    const { error } = await sb.from("body_measurements").upsert(recs, { onConflict: "measured_on" });
+    res.className = "res " + (error ? "err" : "ok");
+    res.textContent = error ? "✖ " + error.message + hint(error) : `✔ ${recs.length} misurazione/i salvata/e. Apri la pagina Misure per vederle.`;
+    if (!error) { recs = []; pv.textContent = ""; file.value = ""; }
+    ref();
+  };
+})();
 /* ---- Hevy: sincronizzazione degli allenamenti ---- */
 const hv = card(`<h3>🏋️ Allenamenti · Hevy <small class="msg">· sincronizzazione automatica</small></h3><p class="msg" id="hv-i">Controllo lo stato…</p><p><button class="pill on" id="hv-go" disabled>Aggiorna da Hevy</button> <button class="pill" id="hv-full" disabled title="Rilegge tutto lo storico da Hevy">Risincronizza tutto</button> <span class="st msg" id="hv-st"></span></p><progress hidden></progress><div class="res" id="hv-r" role="status" aria-live="polite"></div>`);
 const hq = s => hv.querySelector(s), hres = hq("#hv-r");

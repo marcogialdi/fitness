@@ -1,6 +1,6 @@
 // Mappa sorgenti -> schema reale del database. Caricato DOPO config.js (che conserva URL e chiave).
 // Circonferenze (cm): chiave, etichetta, colonna di body_measurements. Una riga per data di misurazione.
-const MISURE = [["collo", "Collo", "neck_cm"], ["spalle", "Spalle", "shoulders_cm"], ["petto", "Petto", "chest_cm"], ["vita", "Vita", "waist_cm"], ["fianchi", "Fianchi", "hips_cm"],
+const MISURE = [["collo", "Collo", "neck_cm"], ["spalle", "Spalle", "shoulders_cm"], ["petto", "Petto", "chest_cm"], ["vita", "Vita", "waist_cm"], ["addome", "Addome", "abdomen_cm"], ["fianchi", "Fianchi", "hips_cm"],
   ["braccio_dx", "Braccio destro", "arm_r_cm"], ["braccio_sx", "Braccio sinistro", "arm_l_cm"], ["avambraccio_dx", "Avambraccio destro", "forearm_r_cm"], ["avambraccio_sx", "Avambraccio sinistro", "forearm_l_cm"],
   ["coscia_dx", "Coscia destra", "thigh_r_cm"], ["coscia_sx", "Coscia sinistra", "thigh_l_cm"], ["polpaccio_dx", "Polpaccio destro", "calf_r_cm"], ["polpaccio_sx", "Polpaccio sinistro", "calf_l_cm"]];
 Object.assign(window.CONFIG, {

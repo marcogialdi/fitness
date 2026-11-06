@@ -6,7 +6,7 @@ window.Misure = { async mount(){
   const today = () => new Date().toLocaleDateString("sv-SE"), fmtD = d => d.split("-").reverse().join("/");
   const say = (el, text, ok) => { el.textContent = text; el.className = "msg " + (ok ? "ok" : "err"); };
   const sb = Page.client(), M = C.MISURE || [];
-  const grp = [["Tronco", ["collo", "spalle", "petto", "vita", "fianchi"]], ["Braccia", ["braccio_dx", "braccio_sx", "avambraccio_dx", "avambraccio_sx"]], ["Gambe", ["coscia_dx", "coscia_sx", "polpaccio_dx", "polpaccio_sx"]]];
+  const grp = [["Tronco", ["collo", "spalle", "petto", "vita", "addome", "fianchi"]], ["Braccia", ["braccio_dx", "braccio_sx", "avambraccio_dx", "avambraccio_sx"]], ["Gambe", ["coscia_dx", "coscia_sx", "polpaccio_dx", "polpaccio_sx"]]];
   const col = k => M.find(m => m[0] === k)[2], lab = k => M.find(m => m[0] === k)[1];
   const { data: rows, error } = await sb.from("body_measurements").select("*").order("measured_on", { ascending: false }).limit(60);
   const host = document.querySelector(".kpis") || document.querySelector(".wrap");

@@ -59,7 +59,7 @@ Object.assign(window.CONFIG, {
     { key: "panca",    label: "Panca piana", pattern: "^bench press|panca piana" },
     { key: "squat",    label: "Squat",       pattern: "^squat" },
     { key: "stacco",   label: "Stacco",      pattern: "^deadlift|^stacco" },
-    { key: "military", label: "Military press", pattern: "^overhead press|^military press|lento avanti" }
+    { key: "military", label: "Military press", pattern: "^overhead press|^military press|lento in avanti \\(bilanciere\\)" }
   ],
   GROUPS: [
     { label: "BIA", source: "peso", color: "#38bdf8" },
@@ -71,7 +71,7 @@ Object.assign(window.CONFIG, {
   MUSCLES: {
     Gambe:   /squat|leg|lunge|calf|affond|gamb|hip thrust|glute/i,
     Petto:   /bench|chest|pec|fly|croci|panca|petto/i,
-    Spalle:  /shoulder|overhead|military|lateral|delt|spall|face pull/i,
+    Spalle:  /shoulder|overhead|military|lento in avanti|lateral|delt|spall|face pull/i,
     Schiena: /row|pull|lat |deadlift|stacco|schiena|rematore|trazion/i,
     Braccia: /curl|tricep|bicep|dip|pushdown|braccia|skull/i,
     Core:    /plank|crunch|abs|core|addome/i
